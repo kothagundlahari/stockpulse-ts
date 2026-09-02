@@ -5,9 +5,12 @@ StockPulse ships a lightweight local web dashboard for browsing the same data th
 ## Starting it
 
 ```sh
-pnpm dev:server      # dev: tsx src/server.ts  -> http://localhost:8787
+pnpm dev             # dev with auto-open browser -> http://localhost:8787
+pnpm dev:server      # dev without auto-open  -> http://localhost:8787
 pnpm start:server    # prod: node dist/server.js (run `pnpm build` first)
 ```
+
+`pnpm dev` opens the dashboard in your default browser automatically. To launch the server without opening a browser, use `pnpm dev:server` or `pnpm start:server`.
 
 `PORT` is configurable via the `PORT` environment variable (default `8787`).
 

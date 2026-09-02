@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsx src/cli/index.ts",
+    "dev": "OPEN_BROWSER=1 tsx src/server.ts",
+    "cli": "tsx src/cli/index.ts",
     "dev:server": "tsx src/server.ts",
     "start:server": "node dist/server.js",
     "test": "vitest run",

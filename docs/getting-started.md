@@ -76,7 +76,7 @@ To develop without a manual build step, prefix any command with `pnpm exec tsx s
 ### Start the web dashboard
 
 ```bash
-pnpm dev:server   # http://localhost:8787
+pnpm dev   # starts the server and opens http://localhost:8787
 ```
 
 ## Option A: Enable AI insights (Ollama)

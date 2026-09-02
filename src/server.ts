@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -153,5 +154,12 @@ function avg(data: DailyPrice[], idx: number, period: number): number {
 
 const server = http.createServer(wrap(route));
 server.listen(PORT, () => {
-  console.log(`StockPulse dashboard: http://localhost:${PORT}`);
+  const url = `http://localhost:${PORT}`;
+  console.log(`StockPulse dashboard: ${url}`);
+  if (process.env.OPEN_BROWSER === "1") {
+    const cmd =
+      process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+    const args = process.platform === "win32" ? [] : [url];
+    spawn(cmd, args, { stdio: "ignore", detached: true }).unref();
+  }
 });
