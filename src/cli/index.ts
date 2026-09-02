@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import chalk from "chalk";
 import { Command } from "commander";
-import { NIFTY50, PERSONALITIES } from "../data/nifty50.js";
+import { getLiveNifty50Fundamentals, mergeFundamentals } from "../data/live-nifty50.js";
+import { PERSONALITIES } from "../data/nifty50.js";
 import { BacktestEngine, type DailyPrice } from "../engines/backtest.js";
 import { DatabaseService } from "../services/database.js";
 import { FyersClient } from "../services/fyers.js";
@@ -141,7 +142,7 @@ program
   .command("personalities")
   .description("Screen the NIFTY 50 universe by investor personality")
   .option("-p, --personality <id>", "filter to one personality (buffett, munger, ...)")
-  .action((options: { personality?: string }) => {
+  .action(async (options: { personality?: string }) => {
     const personalities =
       options.personality !== undefined
         ? PERSONALITIES.filter((p) => p.id === options.personality)
@@ -156,13 +157,15 @@ program
       process.exit(1);
     }
 
-    console.log(chalk.bold(`\nNIFTY 50 universe: ${NIFTY50.length} stocks\n`));
+    const universe = mergeFundamentals(await getLiveNifty50Fundamentals());
+    console.log(chalk.dim("Fetching live fundamentals..."));
+    console.log(chalk.bold(`\nNIFTY 50 universe: ${universe.length} stocks\n`));
 
     for (const p of personalities) {
-      const matched = NIFTY50.filter(p.filter);
+      const matched = universe.filter(p.filter);
       console.log(chalk.bold.blue(`\n${p.name}`));
       console.log(chalk.dim(`  ${p.description}`));
-      console.log(chalk.dim(`  Matches: ${matched.length}/${NIFTY50.length}\n`));
+      console.log(chalk.dim(`  Matches: ${matched.length}/${universe.length}\n`));
       for (const s of matched) {
         console.log(
           `  ${chalk.white(s.symbol.padEnd(14))} ${formatMarketCap(s.marketCap).padEnd(9)} PE ${String(s.peRatio ?? "—").padEnd(6)} ROE ${String(s.roe ?? "—").padEnd(6)} ${s.sector ?? ""}`,

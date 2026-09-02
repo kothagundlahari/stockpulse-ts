@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import { NIFTY50, PERSONALITIES } from "./data/nifty50.js";
+import { getLiveNifty50Fundamentals, mergeFundamentals } from "./data/live-nifty50.js";
+import { PERSONALITIES } from "./data/nifty50.js";
 import { BacktestEngine, type DailyPrice } from "./engines/backtest.js";
 import { DatabaseService } from "./services/database.js";
 import { fetchStockNews } from "./services/news.js";
@@ -36,14 +37,15 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse) {
 
   // --- JSON API ---
   if (pathname === "/api/personalities") {
+    const universe = mergeFundamentals(await getLiveNifty50Fundamentals());
     const result = PERSONALITIES.map((p) => ({
       id: p.id,
       name: p.name,
       description: p.description,
-      matches: NIFTY50.filter(p.filter).length,
-      stocks: NIFTY50.filter(p.filter),
+      matches: universe.filter(p.filter).length,
+      stocks: universe.filter(p.filter),
     }));
-    sendJson(res, 200, { total: NIFTY50.length, personalities: result });
+    sendJson(res, 200, { total: universe.length, personalities: result });
     return;
   }
 
@@ -54,13 +56,14 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse) {
       sendJson(res, 404, { error: `Unknown personality: ${id}` });
       return;
     }
+    const universe = mergeFundamentals(await getLiveNifty50Fundamentals());
     sendJson(res, 200, {
       id: personality.id,
       name: personality.name,
       description: personality.description,
-      total: NIFTY50.length,
-      matches: NIFTY50.filter(personality.filter).length,
-      stocks: NIFTY50.filter(personality.filter),
+      total: universe.length,
+      matches: universe.filter(personality.filter).length,
+      stocks: universe.filter(personality.filter),
     });
     return;
   }

@@ -1,6 +1,9 @@
 import axios from "axios";
+import YahooFinance from "yahoo-finance2";
 import type { DailyPrice } from "../engines/backtest.js";
-import type { Quote } from "../types/index.js";
+import type { Fundamentals, Quote } from "../types/index.js";
+
+const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
@@ -111,5 +114,40 @@ export class YahooFinanceService {
         symbol: q.symbol.replace(".NS", ""),
         name: q.shortname,
       }));
+  }
+
+  /** Fetch live fundamentals from Yahoo Finance quoteSummary. */
+  async getFundamentals(symbol: string): Promise<Fundamentals> {
+    const ticker = `${symbol}.NS`;
+    const data = await yf.quoteSummary(ticker, {
+      modules: ["summaryDetail", "defaultKeyStatistics", "financialData", "assetProfile"],
+    });
+
+    const sd = (data.summaryDetail ?? {}) as Record<string, number | undefined>;
+    const dks = (data.defaultKeyStatistics ?? {}) as Record<string, number | undefined>;
+    const fd = (data.financialData ?? {}) as Record<string, number | undefined>;
+    const ap = (data.assetProfile ?? {}) as Record<string, string | undefined>;
+
+    const sharesOutstanding = dks.sharesOutstanding ?? 0;
+    const bookValue = dks.bookValue ?? 0;
+    const netIncome = dks.netIncomeToCommon ?? 0;
+    const equity = bookValue * sharesOutstanding;
+    const roe = equity > 0 ? (netIncome / equity) * 100 : undefined;
+
+    return {
+      symbol,
+      marketCap: sd.marketCap ? sd.marketCap / 1e7 : undefined,
+      peRatio: sd.trailingPE ?? undefined,
+      pbRatio: dks.priceToBook ?? undefined,
+      dividendYield: sd.dividendYield != null ? sd.dividendYield * 100 : undefined,
+      eps: dks.trailingEps ?? undefined,
+      roe: roe != null && Number.isFinite(roe) ? roe : undefined,
+      debtToEquity: fd.debtToEquity != null ? fd.debtToEquity / 100 : undefined,
+      revenue: fd.totalRevenue ? fd.totalRevenue / 1e7 : undefined,
+      netProfit: netIncome ? netIncome / 1e7 : undefined,
+      operatingMargin: fd.operatingMargins != null ? fd.operatingMargins * 100 : undefined,
+      revenueGrowth: fd.revenueGrowth != null ? fd.revenueGrowth * 100 : undefined,
+      sector: ap.sector ?? undefined,
+    };
   }
 }

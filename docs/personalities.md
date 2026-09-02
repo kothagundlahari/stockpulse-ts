@@ -1,6 +1,6 @@
 # Personality Screeners
 
-Personality screeners express the investing philosophy of a classic investor as a reusable stock filter. Each personality is a pure `(stocks) => stocks` filter applied over the bundled **NIFTY 50** universe (`src/data/nifty50.ts`).
+Personality screeners express the investing philosophy of a classic investor as a reusable stock filter. Each personality is a pure `(stocks) => stocks` filter applied over the **NIFTY 50** universe, using live fundamentals fetched from Yahoo Finance at runtime (with the bundled `src/data/nifty50.ts` snapshot as fallback).
 
 ## The 8 personalities
 
@@ -60,7 +60,9 @@ Filters guard against `undefined` (a stock missing a required field simply fails
 
 ## Data model
 
-The universe lives in `src/data/nifty50.ts`: a `NIFTY50` array of ~49 unique `Fundamentals` records with `symbol`, `sector`, `marketCap`, `peRatio`, `pbRatio`, `dividendYield`, `roe`, `debtToEquity`, and `revenueGrowth`. These are **static reference values** for screening logic — not live quotes.
+The universe starts from `src/data/nifty50.ts`: a `NIFTY50` array of ~49 unique `Fundamentals` records with `symbol`, `sector`, `marketCap`, `peRatio`, `pbRatio`, `dividendYield`, `roe`, `debtToEquity`, and `revenueGrowth`. These serve as the symbol list and a fallback snapshot.
+
+When you run the CLI or the dashboard's Personalities tab, the screeners fetch **live fundamentals** for every NIFTY 50 constituent from Yahoo Finance (`getLiveNifty50Fundamentals` in `src/data/live-nifty50.ts`), fetched concurrently (4 at a time) and cached in-memory for 15 minutes. Live values are merged over the bundled snapshot (`mergeFundamentals`) so every field stays populated even if a symbol can't be fetched — in which case the static value is used as a fallback.
 
 ## Adding a personality
 
