@@ -1,6 +1,6 @@
 import axios from "axios";
-import type { Quote } from "../types/index.js";
 import type { DailyPrice } from "../engines/backtest.js";
+import type { Quote } from "../types/index.js";
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
@@ -49,9 +49,7 @@ export class YahooFinanceService {
       ltp: price,
       change,
       changePercent,
-      open: lastIndex >= 0 && bars.open[lastIndex] != null
-        ? bars.open[lastIndex]
-        : price,
+      open: lastIndex >= 0 && bars.open[lastIndex] != null ? bars.open[lastIndex] : price,
       high: meta.regularMarketDayHigh ?? (lastIndex >= 0 ? bars.high[lastIndex] : price),
       low: meta.regularMarketDayLow ?? (lastIndex >= 0 ? bars.low[lastIndex] : price),
       previousClose,
@@ -60,10 +58,7 @@ export class YahooFinanceService {
     };
   }
 
-  async getHistoricalPrices(
-    symbol: string,
-    range: string = "1mo"
-  ): Promise<DailyPrice[]> {
+  async getHistoricalPrices(symbol: string, range: string = "1mo"): Promise<DailyPrice[]> {
     const ticker = `${symbol}.NS`;
     const response = await axios.get(`${this.chartUrl}/${ticker}`, {
       params: {
@@ -98,22 +93,19 @@ export class YahooFinanceService {
   }
 
   async search(query: string): Promise<{ symbol: string; name: string }[]> {
-    const response = await axios.get(
-      "https://query2.finance.yahoo.com/v1/finance/search",
-      {
-        params: {
-          q: query,
-          quotesCount: 10,
-          newsCount: 0,
-        },
-        headers: this.headers,
-      }
-    );
+    const response = await axios.get("https://query2.finance.yahoo.com/v1/finance/search", {
+      params: {
+        q: query,
+        quotesCount: 10,
+        newsCount: 0,
+      },
+      headers: this.headers,
+    });
 
     return (response.data.quotes || [])
       .filter(
         (q: { exchange: string; quoteType: string }) =>
-          q.exchange === "NSI" && q.quoteType === "EQUITY"
+          q.exchange === "NSI" && q.quoteType === "EQUITY",
       )
       .map((q: { symbol: string; shortname: string }) => ({
         symbol: q.symbol.replace(".NS", ""),

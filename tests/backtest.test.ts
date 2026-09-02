@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { BacktestEngine } from "../src/engines/backtest.js";
 
 describe("BacktestEngine", () => {
@@ -17,11 +17,7 @@ describe("BacktestEngine", () => {
 
   it("calculates simple buy-and-hold return", () => {
     const engine = new BacktestEngine();
-    const result = engine.run(
-      dailyPrices,
-      100000,
-      (prices, idx) => (idx === 0 ? "BUY" : "HOLD")
-    );
+    const result = engine.run(dailyPrices, 100000, (_prices, idx) => (idx === 0 ? "BUY" : "HOLD"));
     expect(result.initialCapital).toBe(100000);
     expect(result.finalCapital).toBeGreaterThan(100000);
     expect(result.trades.length).toBe(1);
@@ -29,13 +25,9 @@ describe("BacktestEngine", () => {
 
   it("executes SMA crossover strategy", () => {
     const engine = new BacktestEngine();
-    const smaCrossover = (
-      prices: { close: number }[],
-      idx: number
-    ): "BUY" | "SELL" | "HOLD" => {
+    const smaCrossover = (prices: { close: number }[], idx: number): "BUY" | "SELL" | "HOLD" => {
       if (idx < 4) return "HOLD";
-      const shortSma =
-        (prices[idx].close + prices[idx - 1].close + prices[idx - 2].close) / 3;
+      const shortSma = (prices[idx].close + prices[idx - 1].close + prices[idx - 2].close) / 3;
       const longSma =
         (prices[idx].close +
           prices[idx - 1].close +
@@ -54,10 +46,8 @@ describe("BacktestEngine", () => {
 
   it("tracks equity curve correctly", () => {
     const engine = new BacktestEngine();
-    const result = engine.run(
-      dailyPrices,
-      100000,
-      (prices, idx) => (idx === 0 ? "BUY" : idx === 5 ? "SELL" : "HOLD")
+    const result = engine.run(dailyPrices, 100000, (_prices, idx) =>
+      idx === 0 ? "BUY" : idx === 5 ? "SELL" : "HOLD",
     );
     expect(result.equityCurve.length).toBe(dailyPrices.length);
     expect(result.equityCurve[0].value).toBe(100000);
@@ -65,17 +55,13 @@ describe("BacktestEngine", () => {
 
   it("calculates win rate", () => {
     const engine = new BacktestEngine();
-    const result = engine.run(
-      dailyPrices,
-      100000,
-      (prices, idx) => {
-        if (idx === 0) return "BUY";
-        if (idx === 2) return "SELL";
-        if (idx === 5) return "BUY";
-        if (idx === 8) return "SELL";
-        return "HOLD";
-      }
-    );
+    const result = engine.run(dailyPrices, 100000, (_prices, idx) => {
+      if (idx === 0) return "BUY";
+      if (idx === 2) return "SELL";
+      if (idx === 5) return "BUY";
+      if (idx === 8) return "SELL";
+      return "HOLD";
+    });
     expect(result.winRate).toBeGreaterThanOrEqual(0);
     expect(result.winRate).toBeLessThanOrEqual(100);
   });

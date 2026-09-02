@@ -15,13 +15,13 @@ The original project was a native macOS SwiftUI app. This rebuild:
 
 ```bash
 # Install
-npm install
+pnpm install
 
 # Build
-npm run build
+pnpm build
 
 # Run tests (TDD verification)
-npm test
+pnpm test
 
 # Get a live quote
 node dist/cli/index.js quote RELIANCE
@@ -41,6 +41,8 @@ node dist/cli/index.js --help
 | News | ✅ | Google News + MoneyControl RSS feeds |
 | Backtesting | ✅ | SMA crossover / buy-and-hold, no look-ahead bias |
 | Screeners | ✅ | Filterable by market cap, PE, ROE, etc. |
+| Personality Screeners | ✅ | 8 classic investor personalities over the NIFTY 50 |
+| Web Dashboard | ✅ | Local dashboard + JSON API (quotes, screeners, backtest, journal, news) |
 | Trade Journal | ✅ | SQLite persistence |
 | AI Insights | ✅ | Local Ollama inference |
 | FYERS Trading | ⚠️ | OAuth auth flow + order placement |
@@ -52,6 +54,8 @@ node dist/cli/index.js --help
 - [Data Sources](docs/data-sources.md)
 - [Backtesting](docs/backtesting.md)
 - [Screeners](docs/screeners.md)
+- [Personality Screeners](docs/personalities.md)
+- [Web Dashboard](docs/dashboard.md)
 - [Trade Journal](docs/trade-journal.md)
 - [AI Insights](docs/ai-insights.md)
 - [Live Trading & FYERS](docs/fyers-trading.md)
@@ -65,7 +69,10 @@ researchTool-ts/
 │   ├── cli/            # Command-line interface (commander)
 │   ├── engines/        # Core business logic (screener, backtest)
 │   ├── services/       # External integrations (Yahoo, FYERS, Ollama, DB)
-│   └── types/          # Zod schema + inferred TypeScript types
+│   ├── data/           # NIFTY 50 universe + personality screeners
+│   ├── types/          # Zod schema + inferred TypeScript types
+│   └── server.ts       # Local web dashboard + JSON API
+├── public/             # Dashboard static assets (HTML/CSS/JS)
 ├── tests/              # Vitest test suites
 ├── docs/               # Documentation
 └── data/               # Runtime SQLite database (gitignored)

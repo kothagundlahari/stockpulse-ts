@@ -5,21 +5,21 @@ This guide walks you through installing and running StockPulse for the first tim
 ## Prerequisites
 
 - **Node.js 18+** (tested on 22)
-- **npm** (bundled with Node.js)
+- **pnpm** (package manager — install via `npm install -g pnpm` or Corepack)
 - Optional: **Ollama** for AI insights, **FYERS API credentials** for live trading
 
 ## Installation
 
 ```bash
-git clone <your-repo-url> && cd researchTool-ts
-npm install
-npm run build
+git clone https://github.com/kothagundlahari/stockpulse-ts.git && cd researchTool-ts
+pnpm install
+pnpm build
 ```
 
 ## Verify the setup
 
 ```bash
-npm test
+pnpm test
 ```
 
 This runs the TDD test suite. All tests should pass.
@@ -29,6 +29,7 @@ This runs the TDD test suite. All tests should pass.
 ### Get a live quote
 
 ```bash
+pnpm build   # compile first (or use `pnpm exec tsx src/cli/index.ts`)
 node dist/cli/index.js quote RELIANCE
 ```
 
@@ -47,6 +48,13 @@ RELIANCE @ ₹2500.00
 node dist/cli/index.js backtest TCS --strategy sma_crossover
 ```
 
+### Run a personality screener
+
+```bash
+node dist/cli/index.js personalities
+node dist/cli/index.js personalities -p graham
+```
+
 ### Fetch recent news
 
 ```bash
@@ -61,6 +69,14 @@ node dist/cli/index.js journal --add
 
 # List all entries
 node dist/cli/index.js journal --list
+```
+
+To develop without a manual build step, prefix any command with `pnpm exec tsx src/cli/index.ts` in place of `node dist/cli/index.js`.
+
+### Start the web dashboard
+
+```bash
+pnpm dev:server   # http://localhost:8787
 ```
 
 ## Option A: Enable AI insights (Ollama)
@@ -97,7 +113,7 @@ Live trading requires a FYERS developer account. See [Live Trading & FYERS](fyer
 ## Troubleshooting
 
 **"Cannot find module 'commander'"**
-Run `npm install` again, then `npm run build`.
+Run `pnpm install` again, then `pnpm build`.
 
 **Backtest returns no data**
 The Yahoo Finance endpoint may be rate-limiting. Wait a moment and retry. Check your internet connection.

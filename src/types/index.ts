@@ -38,6 +38,8 @@ export const FundamentalsSchema = z.object({
   revenue: z.number().optional(),
   netProfit: z.number().optional(),
   operatingMargin: z.number().optional(),
+  revenueGrowth: z.number().optional(),
+  sector: z.string().optional(),
 });
 
 export type Fundamentals = z.infer<typeof FundamentalsSchema>;
@@ -95,7 +97,7 @@ export const BacktestResultSchema = z.object({
       exitDate: z.string(),
       exitPrice: z.number(),
       pnl: z.number(),
-    })
+    }),
   ),
 });
 

@@ -1,6 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
 import SqliteDb from "better-sqlite3";
-import path from "path";
-import fs from "fs";
 import type { JournalEntry } from "../types/index.js";
 
 /**
@@ -51,7 +51,7 @@ export class DatabaseService {
     this.db
       .prepare(
         `INSERT INTO journal (id, symbol, date, action, price, quantity, pnl, notes, emotions, lessons)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         entry.id,
@@ -63,7 +63,7 @@ export class DatabaseService {
         entry.pnl ?? null,
         entry.notes ?? null,
         entry.emotions ?? null,
-        entry.lessons ?? null
+        entry.lessons ?? null,
       );
   }
 
@@ -73,9 +73,7 @@ export class DatabaseService {
         .prepare("SELECT * FROM journal WHERE symbol = ? ORDER BY date DESC")
         .all(symbol) as JournalEntry[];
     }
-    return this.db
-      .prepare("SELECT * FROM journal ORDER BY date DESC")
-      .all() as JournalEntry[];
+    return this.db.prepare("SELECT * FROM journal ORDER BY date DESC").all() as JournalEntry[];
   }
 
   deleteJournalEntry(id: string): boolean {
@@ -94,7 +92,7 @@ export class DatabaseService {
     this.db
       .prepare(
         `INSERT OR REPLACE INTO screeners (id, name, description, criteria, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?)`,
       )
       .run(
         screener.id,
@@ -102,18 +100,18 @@ export class DatabaseService {
         screener.description ?? null,
         JSON.stringify(screener.criteria),
         screener.createdAt,
-        screener.updatedAt
+        screener.updatedAt,
       );
   }
 
   getScreeners(): { id: string; name: string; description: string | null; criteria: object }[] {
-    return this.db
+    const rows = this.db
       .prepare("SELECT id, name, description, criteria FROM screeners ORDER BY name")
-      .all()
-      .map((row: any) => ({
-        ...row,
-        criteria: JSON.parse(row.criteria),
-      }));
+      .all() as { id: string; name: string; description: string | null; criteria: string }[];
+    return rows.map((row) => ({
+      ...row,
+      criteria: JSON.parse(row.criteria),
+    }));
   }
 
   close(): void {

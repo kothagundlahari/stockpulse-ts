@@ -5,9 +5,9 @@ Guide for contributors. Built with **TDD** and practical TypeScript standards.
 ## Project setup
 
 ```bash
-npm install        # install dependencies
-npm run build      # type-check + compile to dist/
-npm test           # run all tests (vitest)
+pnpm install        # install dependencies
+pnpm build         # type-check + compile to dist/
+pnpm test           # run all tests (vitest)
 ```
 
 ## TDD workflow
@@ -15,7 +15,7 @@ npm test           # run all tests (vitest)
 StockPulse is developed test-first. The workflow:
 
 1. **Write a failing test** — describe the expected behavior in `tests/`
-2. **Run it** — confirm it fails (`npm test`)
+2. **Run it** — confirm it fails (`pnpm test`)
 3. **Write the minimal implementation** to make it pass
 4. **Run the full suite** — ensure nothing regressed
 5. **Refactor** — clean up while keeping tests green
@@ -56,8 +56,8 @@ Keep business logic in engines, not in the CLI. If a behavior is testable withou
 ## Verification commands
 
 ```bash
-npm run build       # tsc compile (catches type errors)
-npm test            # full suite
+pnpm build         # tsc compile (catches type errors)
+pnpm test          # full suite
 node dist/cli/index.js --help   # smoke-test the CLI after build
 ```
 
@@ -83,12 +83,12 @@ Load them from a `.env` (gitignored) or export them in your shell. Never commit 
 
 **Recompile after edits:**
 ```bash
-npm run build
+pnpm build
 ```
 
 **Watch mode for tests while developing:**
 ```bash
-npm run test:watch
+pnpm test:watch
 ```
 
 **Type-only check without emitting:**

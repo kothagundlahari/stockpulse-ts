@@ -1,0 +1,5 @@
+{
+  "src/**/*.{ts,tsx,js,json}": "biome check --write --no-errors-on-unmatched",
+  "tests/**/*.{ts,tsx,js}": "biome check --write --no-errors-on-unmatched",
+  "*.{json,md}": "biome check --write --no-errors-on-unmatched"
+}

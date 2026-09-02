@@ -1,10 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  StockSchema,
+  BacktestConfigSchema,
   QuoteSchema,
   ScreenerCriteriaSchema,
   ScreenerSchema,
-  BacktestConfigSchema,
+  StockSchema,
 } from "../src/types/index.js";
 
 describe("Stock", () => {

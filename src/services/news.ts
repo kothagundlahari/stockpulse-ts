@@ -14,9 +14,9 @@ export interface NewsItem {
 function parseRssItems(xml: string): NewsItem[] {
   const items: NewsItem[] = [];
   const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  let match;
+  let match: RegExpExecArray | null = itemRegex.exec(xml);
 
-  while ((match = itemRegex.exec(xml)) !== null) {
+  while (match !== null) {
     const content = match[1];
     const title = extractTag(content, "title");
     const link = extractTag(content, "link");
@@ -25,6 +25,7 @@ function parseRssItems(xml: string): NewsItem[] {
     if (title && link) {
       items.push({ title, link, pubDate: pubDate || "", source: "" });
     }
+    match = itemRegex.exec(xml);
   }
 
   return items;
@@ -37,17 +38,17 @@ function extractTag(content: string, tag: string): string | null {
 }
 
 const RSS_FEEDS = [
-  { url: "https://news.google.com/rss/search?q=%s+stock+market&hl=en-IN&gl=IN", name: "Google News" },
+  {
+    url: "https://news.google.com/rss/search?q=%s+stock+market&hl=en-IN&gl=IN",
+    name: "Google News",
+  },
   { url: "https://feeds.feedburner.com/moneycontrolheadlines", name: "MoneyControl" },
 ];
 
 /**
  * Fetches news for a stock from multiple RSS sources.
  */
-export async function fetchStockNews(
-  symbol: string,
-  maxItems: number = 10
-): Promise<NewsItem[]> {
+export async function fetchStockNews(symbol: string, maxItems: number = 10): Promise<NewsItem[]> {
   const allItems: NewsItem[] = [];
 
   for (const feed of RSS_FEEDS) {
@@ -58,7 +59,9 @@ export async function fetchStockNews(
         headers: { "User-Agent": "StockPulse/1.0" },
       });
       const items = parseRssItems(response.data);
-      items.forEach((item) => (item.source = feed.name));
+      for (const item of items) {
+        item.source = feed.name;
+      }
       allItems.push(...items);
     } catch {
       // Skip failed feeds silently

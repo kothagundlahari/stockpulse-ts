@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { YahooFinanceService } from "../src/services/yahoo-finance.js";
 import axios from "axios";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { YahooFinanceService } from "../src/services/yahoo-finance.js";
 
 vi.mock("axios");
 const mockedAxios = vi.mocked(axios);
@@ -69,7 +69,7 @@ describe("YahooFinanceService", () => {
       "https://query1.finance.yahoo.com/v8/finance/chart/RELIANCE.NS",
       expect.objectContaining({
         headers: expect.objectContaining({ "User-Agent": expect.stringContaining("Mozilla") }),
-      })
+      }),
     );
   });
 

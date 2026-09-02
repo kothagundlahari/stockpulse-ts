@@ -32,7 +32,7 @@ export class OllamaService {
   async generateInsight(
     model: string,
     symbol: string,
-    fundamentals: Record<string, unknown>
+    fundamentals: Record<string, unknown>,
   ): Promise<string> {
     const prompt = `You are an expert Indian stock analyst. Analyze ${symbol} with these fundamentals:
 ${JSON.stringify(fundamentals, null, 2)}

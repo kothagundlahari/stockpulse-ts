@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import fs from "node:fs";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseService } from "../src/services/database.js";
-import fs from "fs";
 
 const TEST_DB = "./data/test-stockpulse.db";
 

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StockPulse — Indian Stock Research</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>StockPulse</h1>
+      <p>AI-powered Indian stock research</p>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="quotes">Quotes</button>
+      <button class="tab-btn" data-tab="personalities">Personalities</button>
+      <button class="tab-btn" data-tab="backtest">Backtest</button>
+      <button class="tab-btn" data-tab="journal">Journal</button>
+      <button class="tab-btn" data-tab="news">News</button>
+    </nav>
+
+    <main>
+      <!-- Quotes -->
+      <section id="tab-quotes" class="tab-panel active">
+        <div class="row">
+          <input id="quote-symbol" placeholder="e.g. RELIANCE" value="RELIANCE" />
+          <button id="quote-fetch" class="btn">Get Quote</button>
+        </div>
+        <div id="quote-result" class="card"></div>
+      </section>
+
+      <!-- Personalities -->
+      <section id="tab-personalities" class="tab-panel">
+        <p class="hint">Screen the NIFTY 50 by classic investor personalities.</p>
+        <div id="personality-list"></div>
+      </section>
+
+      <!-- Backtest -->
+      <section id="tab-backtest" class="tab-panel">
+        <div class="row">
+          <input id="bt-symbol" placeholder="e.g. TCS" value="TCS" />
+          <select id="bt-range">
+            <option value="3mo">3 months</option>
+            <option value="6mo">6 months</option>
+            <option value="1y" selected>1 year</option>
+            <option value="2y">2 years</option>
+          </select>
+          <button id="bt-fetch" class="btn">Run Backtest</button>
+        </div>
+        <div id="bt-result" class="card"></div>
+      </section>
+
+      <!-- Journal -->
+      <section id="tab-journal" class="tab-panel">
+        <div id="journal-list" class="card"></div>
+      </section>
+
+      <!-- News -->
+      <section id="tab-news" class="tab-panel">
+        <div class="row">
+          <input id="news-symbol" placeholder="e.g. HDFCBANK" value="HDFCBANK" />
+          <button id="news-fetch" class="btn">Get News</button>
+        </div>
+        <div id="news-list" class="card"></div>
+      </section>
+    </main>
+
+    <footer>Data for research only · Not financial advice</footer>
+    <script src="app.js"></script>
+  </body>
+</html>

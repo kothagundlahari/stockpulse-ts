@@ -1,6 +1,6 @@
+import crypto from "node:crypto";
+import { EventEmitter } from "node:events";
 import axios from "axios";
-import crypto from "crypto";
-import { EventEmitter } from "events";
 
 export interface FyersConfig {
   appId: string;
@@ -42,7 +42,7 @@ export class FyersClient extends EventEmitter {
   /** Build the OAuth authorization URL the user must open in a browser. */
   getAuthUrl(): string {
     return `https://api-t1.fyers.in/api/v3/generate-authcode?client_id=${this.config.appId}&redirect_uri=${encodeURIComponent(
-      this.config.redirectUri
+      this.config.redirectUri,
     )}&response_type=code&state=stockpulse`;
   }
 
@@ -53,14 +53,11 @@ export class FyersClient extends EventEmitter {
       .update(`${this.config.appId}:${this.config.secretKey}`)
       .digest("hex");
 
-    const response = await axios.post<AuthResponse>(
-      `${this.baseUrl}/validate-authcode`,
-      {
-        grant_type: "authorization_code",
-        appIdHash,
-        code: authCode,
-      }
-    );
+    const response = await axios.post<AuthResponse>(`${this.baseUrl}/validate-authcode`, {
+      grant_type: "authorization_code",
+      appIdHash,
+      code: authCode,
+    });
 
     if (response.data.s !== "ok") {
       throw new Error(`Authentication failed: ${response.data.message}`);
@@ -82,14 +79,11 @@ export class FyersClient extends EventEmitter {
       .update(`${this.config.appId}:${this.config.secretKey}`)
       .digest("hex");
 
-    const response = await axios.post<AuthResponse>(
-      `${this.baseUrl}/validate-refresh_token`,
-      {
-        grant_type: "refresh_token",
-        appIdHash,
-        refresh_token: this.refreshToken,
-      }
-    );
+    const response = await axios.post<AuthResponse>(`${this.baseUrl}/validate-refresh_token`, {
+      grant_type: "refresh_token",
+      appIdHash,
+      refresh_token: this.refreshToken,
+    });
 
     if (response.data.s !== "ok") {
       throw new Error(`Token refresh failed: ${response.data.message}`);
@@ -130,7 +124,7 @@ export class FyersClient extends EventEmitter {
         productType: params.productType ?? "INTRADAY",
         validity: "DAY",
       },
-      { headers: { Authorization: `Bearer ${this.accessToken}` } }
+      { headers: { Authorization: `Bearer ${this.accessToken}` } },
     );
     return response.data;
   }

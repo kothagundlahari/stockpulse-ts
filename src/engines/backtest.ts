@@ -35,7 +35,7 @@ export class BacktestEngine {
   run(
     prices: DailyPrice[],
     initialCapital: number,
-    strategy: (prices: DailyPrice[], index: number) => Signal
+    strategy: (prices: DailyPrice[], index: number) => Signal,
   ): BacktestResult {
     let cash = initialCapital;
     let position = 0;
@@ -93,9 +93,7 @@ export class BacktestEngine {
     const finalCapital = cash;
     const totalReturn = ((finalCapital - initialCapital) / initialCapital) * 100;
     const winRate =
-      trades.length > 0
-        ? (trades.filter((t) => t.pnl > 0).length / trades.length) * 100
-        : 0;
+      trades.length > 0 ? (trades.filter((t) => t.pnl > 0).length / trades.length) * 100 : 0;
 
     return {
       initialCapital,

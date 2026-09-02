@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ScreenerEngine } from "../src/engines/screener.js";
 import type { Fundamentals } from "../src/types/index.js";
 
@@ -66,11 +66,7 @@ describe("ScreenerEngine", () => {
     const engine = new ScreenerEngine();
     const results = engine.filter(mockStocks, { minPe: 20, maxPe: 30 });
     expect(results).toHaveLength(3);
-    expect(results.map((s) => s.symbol)).toEqual([
-      "RELIANCE",
-      "HDFCBANK",
-      "INFY",
-    ]);
+    expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "HDFCBANK", "INFY"]);
   });
 
   it("filters by minimum dividend yield", () => {
@@ -91,11 +87,7 @@ describe("ScreenerEngine", () => {
     const engine = new ScreenerEngine();
     const results = engine.filter(mockStocks, { maxDebtToEquity: 0.3 });
     expect(results).toHaveLength(3);
-    expect(results.map((s) => s.symbol)).toEqual([
-      "RELIANCE",
-      "TCS",
-      "INFY",
-    ]);
+    expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "TCS", "INFY"]);
   });
 
   it("combines multiple criteria", () => {
