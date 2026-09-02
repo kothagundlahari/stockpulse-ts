@@ -37,7 +37,7 @@ node dist/cli/index.js --help
 
 | Feature | Status | Description |
 |---|---|---|
-| Live Quotes | ✅ | Yahoo Finance v8 API, NSE symbols |
+| Live Quotes | ✅ | Yahoo Finance chart API, NSE symbols |
 | News | ✅ | Google News + MoneyControl RSS feeds |
 | Backtesting | ✅ | SMA crossover / buy-and-hold, no look-ahead bias |
 | Screeners | ✅ | Filterable by market cap, PE, ROE, etc. |

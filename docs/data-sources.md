@@ -16,12 +16,16 @@ All primary data sources are free and require no API keys. Only FYERS (for live 
 
 Used for the core market data. Symbols are suffixed with `.NS` to target the National Stock Exchange.
 
-**Endpoints:**
-- `GET /v8/finance/quote` — real-time quote
-- `GET /v8/finance/chart` — historical OHLCV
+**Important:** Yahoo now rejects requests without a browser-style `User-Agent` header (returning `404`/`429`), and the raw `quote` endpoint is unreliable. This service therefore:
+
+- Sends a browser `User-Agent` and `Accept: application/json` on every request
+- Sources **live quotes from chart metadata** (`/v8/finance/chart`, range `1d`), which is more permissive and returns the same fields (LTP, prev close, day high/low, volume, timestamp) plus the per-bar open
+
+**Endpoints used:**
+- `GET /v8/finance/chart/{symbol}.NS?range=…&interval=1d` — quote + historical OHLCV
 - `GET /v1/finance/search` — symbol search
 
-**Handled:** `.NS` suffixing, Indian exchange filtering in search, error propagation with a clear message.
+**Handled:** `.NS` suffixing, Indian exchange filtering, day-open extracted from the latest price bar, error propagation with a clear message.
 
 ## News RSS (`/services/news.ts`)
 
@@ -39,6 +43,7 @@ See [AI Insights](ai-insights.md). Runs entirely locally.
 
 ## Limitations & rate limits
 
-- **Yahoo Finance** can rate-limit heavy usage. The CLI makes one request per command, which is typically fine. If you hit `429` or empty data, wait a few seconds and retry.
+- **Yahoo Finance** can rate-limit heavy usage, and now requires a browser `User-Agent` header (the service sets it automatically). The CLI makes one request per command, which is typically fine. If you hit `429` or empty data, wait a few seconds and retry.
+- The live quote's **open** price is taken from the latest intraday price bar; on non-trading days it may equal the last price.
 - **RSS feeds** may occasionally return empty results. The parser returns an empty array rather than throwing.
 - This tool is for **research only**; always cross-check data with your broker before acting on it.
