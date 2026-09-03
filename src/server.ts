@@ -45,6 +45,7 @@ export interface ServerDeps {
   yahoo: YahooFinanceService;
   getFundamentals: () => Promise<Fundamentals[]>;
   ollama?: OllamaService;
+  connectUpstox?: (code: string) => Promise<Broker>;
 }
 
 /** Minimal JSON helper. */
@@ -61,7 +62,11 @@ export async function readBody(req: http.IncomingMessage): Promise<unknown> {
   }
   if (chunks.length === 0) return {};
   try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    return parsed;
   } catch {
     return {};
   }
@@ -135,6 +140,8 @@ export async function router(
     if (searchParams.has("minRoe")) criteria.minRoe = Number(searchParams.get("minRoe"));
     if (searchParams.has("maxDebtToEquity"))
       criteria.maxDebtToEquity = Number(searchParams.get("maxDebtToEquity"));
+    if (searchParams.has("minRevenueGrowth"))
+      criteria.minRevenueGrowth = Number(searchParams.get("minRevenueGrowth"));
 
     const screener = new ScreenerEngine();
     const matched = screener.filter(universe, criteria);
@@ -156,8 +163,19 @@ export async function router(
       sendJson(res, 400, { error: "Missing auth code" });
       return;
     }
-    await connectUpstox(body.code);
-    sendJson(res, 200, { ok: true });
+    const code = body.code;
+    try {
+      const client = deps.connectUpstox
+        ? await deps.connectUpstox(code)
+        : await (async () => {
+            await connectUpstox(code);
+            return getUpstoxClient();
+          })();
+      deps.upstox = client;
+      sendJson(res, 200, { ok: true });
+    } catch (e) {
+      sendJson(res, 500, { error: e instanceof Error ? e.message : "Authentication failed" });
+    }
     return;
   }
 
@@ -201,28 +219,47 @@ export async function router(
 
   if (pathname === "/api/trade" && req.method === "POST") {
     const body = (await readBody(req)) as {
-      symbol?: string;
-      side?: string;
-      qty?: number;
-      type?: string;
-      limitPrice?: number;
-      confirm?: boolean;
+      symbol?: unknown;
+      side?: unknown;
+      qty?: unknown;
+      type?: unknown;
+      limitPrice?: unknown;
+      confirm?: unknown;
     };
     if (body.confirm !== true) {
       sendJson(res, 400, { error: "Trade not confirmed. Set confirm:true to place a real order." });
       return;
     }
-    if (!body.symbol || !body.side || !body.qty || !body.type) {
-      sendJson(res, 400, { error: "Missing symbol, side, qty, or type." });
+    if (typeof body.symbol !== "string" || body.symbol.trim() === "") {
+      sendJson(res, 400, { error: "Missing or invalid symbol." });
+      return;
+    }
+    if (body.side !== "BUY" && body.side !== "SELL") {
+      sendJson(res, 400, { error: "Invalid side. Must be BUY or SELL." });
+      return;
+    }
+    if (body.type !== "LIMIT" && body.type !== "MARKET") {
+      sendJson(res, 400, { error: "Invalid type. Must be LIMIT or MARKET." });
+      return;
+    }
+    if (typeof body.qty !== "number" || !Number.isInteger(body.qty) || body.qty <= 0) {
+      sendJson(res, 400, { error: "Invalid qty. Must be a positive integer." });
+      return;
+    }
+    if (
+      body.type === "LIMIT" &&
+      (typeof body.limitPrice !== "number" || body.limitPrice <= 0 || Number.isNaN(body.limitPrice))
+    ) {
+      sendJson(res, 400, { error: "limitPrice must be a positive number for LIMIT orders." });
       return;
     }
     try {
       const result = await deps.upstox.placeOrder({
         symbol: body.symbol,
         qty: body.qty,
-        side: body.side === "SELL" ? "SELL" : "BUY",
-        type: body.type === "LIMIT" ? "LIMIT" : "MARKET",
-        limitPrice: body.limitPrice,
+        side: body.side,
+        type: body.type,
+        limitPrice: typeof body.limitPrice === "number" ? body.limitPrice : undefined,
         confirm: true,
       });
       sendJson(res, 200, { id: result.id });
@@ -374,6 +411,12 @@ export async function createServer(opts: ServerOptions = {}): Promise<http.Serve
     ollama:
       opts.deps?.ollama ??
       (realBroker ? new OllamaService() : ({ isRunning: async () => false } as OllamaService)),
+    connectUpstox:
+      opts.deps?.connectUpstox ??
+      (async (code: string) => {
+        await connectUpstox(code);
+        return getUpstoxClient();
+      }),
   };
 
   return http.createServer(wrap((req, res) => router(req, res, deps)));
