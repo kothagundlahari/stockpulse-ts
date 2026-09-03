@@ -3,13 +3,24 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { z } from "zod";
-import { getLiveNifty50Fundamentals, mergeFundamentals } from "./data/live-nifty50.js";
 import { PERSONALITIES } from "./data/nifty50.js";
+import { getNifty500Fundamentals } from "./data/nifty500.js";
 import { BacktestEngine, smaCrossover } from "./engines/backtest.js";
+import { recommendHolding, smaFromDaily } from "./engines/holding-recommendation.js";
+import { ScreenerEngine } from "./engines/screener.js";
+import { connectUpstox, getUpstoxClient } from "./services/broker.js";
+import type { Broker } from "./services/broker-types.js";
 import { DatabaseService } from "./services/database.js";
 import { fetchStockNews } from "./services/news.js";
+import { OllamaService } from "./services/ollama.js";
+import type { UpstoxClient } from "./services/upstox.js";
 import { YahooFinanceService } from "./services/yahoo-finance.js";
-import { HistoricalPriceSchema, QuoteSchema } from "./types/index.js";
+import {
+  type Fundamentals,
+  HistoricalPriceSchema,
+  QuoteSchema,
+  type ScreenerCriteria,
+} from "./types/index.js";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 
@@ -27,17 +38,37 @@ const VALID_RANGES = new Set([
   "max",
 ]);
 
-const yahoo = new YahooFinanceService();
 const PORT = Number(process.env.PORT ?? 8787);
 
+export interface ServerDeps {
+  upstox: UpstoxClient | Broker;
+  yahoo: YahooFinanceService;
+  getFundamentals: () => Promise<Fundamentals[]>;
+  ollama?: OllamaService;
+}
+
 /** Minimal JSON helper. */
-function sendJson(res: http.ServerResponse, status: number, body: unknown) {
+export function sendJson(res: http.ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(body));
 }
 
+/** Parse JSON request body. */
+export async function readBody(req: http.IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+  }
+  if (chunks.length === 0) return {};
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    return {};
+  }
+}
+
 /** Handle async request handlers, converting errors to a 500 JSON response. */
-function wrap(
+export function wrap(
   handler: (req: http.IncomingMessage, res: http.ServerResponse) => Promise<void> | void,
 ) {
   return (req: http.IncomingMessage, res: http.ServerResponse) => {
@@ -47,13 +78,17 @@ function wrap(
   };
 }
 
-async function route(req: http.IncomingMessage, res: http.ServerResponse) {
+export async function router(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  deps: ServerDeps,
+): Promise<void> {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
   const { pathname, searchParams } = url;
 
   // --- JSON API ---
   if (pathname === "/api/personalities") {
-    const universe = mergeFundamentals(await getLiveNifty50Fundamentals());
+    const universe = await deps.getFundamentals();
     const result = PERSONALITIES.map((p) => ({
       id: p.id,
       name: p.name,
@@ -72,7 +107,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse) {
       sendJson(res, 404, { error: `Unknown personality: ${id}` });
       return;
     }
-    const universe = mergeFundamentals(await getLiveNifty50Fundamentals());
+    const universe = await deps.getFundamentals();
     sendJson(res, 200, {
       id: personality.id,
       name: personality.name,
@@ -84,13 +119,138 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse) {
     return;
   }
 
+  if (pathname === "/api/screen") {
+    const universe = await deps.getFundamentals();
+    const criteria: ScreenerCriteria = {};
+    if (searchParams.has("minMarketCap"))
+      criteria.minMarketCap = Number(searchParams.get("minMarketCap"));
+    if (searchParams.has("maxMarketCap"))
+      criteria.maxMarketCap = Number(searchParams.get("maxMarketCap"));
+    if (searchParams.has("minPe")) criteria.minPe = Number(searchParams.get("minPe"));
+    if (searchParams.has("maxPe")) criteria.maxPe = Number(searchParams.get("maxPe"));
+    if (searchParams.has("minPb")) criteria.minPb = Number(searchParams.get("minPb"));
+    if (searchParams.has("maxPb")) criteria.maxPb = Number(searchParams.get("maxPb"));
+    if (searchParams.has("minDividendYield"))
+      criteria.minDividendYield = Number(searchParams.get("minDividendYield"));
+    if (searchParams.has("minRoe")) criteria.minRoe = Number(searchParams.get("minRoe"));
+    if (searchParams.has("maxDebtToEquity"))
+      criteria.maxDebtToEquity = Number(searchParams.get("maxDebtToEquity"));
+
+    const screener = new ScreenerEngine();
+    const matched = screener.filter(universe, criteria);
+    sendJson(res, 200, { total: universe.length, matches: matched.length, stocks: matched });
+    return;
+  }
+
+  if (pathname === "/api/broker") {
+    sendJson(res, 200, {
+      authenticated: deps.upstox.isAuthenticated,
+      authUrl: deps.upstox.getAuthUrl(),
+    });
+    return;
+  }
+
+  if (pathname === "/api/broker/auth" && req.method === "POST") {
+    const body = (await readBody(req)) as { code?: string };
+    if (!body.code) {
+      sendJson(res, 400, { error: "Missing auth code" });
+      return;
+    }
+    await connectUpstox(body.code);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (pathname === "/api/portfolio") {
+    try {
+      const holdings = await deps.upstox.getHoldings();
+      const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+      const enriched = await Promise.all(
+        holdings.map(async (h) => {
+          let fundamentals: Fundamentals | undefined;
+          let price = { current: h.ltp, sma10: 0, sma50: 0 };
+          try {
+            fundamentals = await deps.yahoo.getFundamentals(h.symbol);
+            const daily = await deps.yahoo.getHistoricalPrices(h.symbol, "3mo");
+            const sma = smaFromDaily(daily);
+            price = { current: h.ltp, sma10: sma.sma10, sma50: sma.sma50 };
+          } catch {
+            // keep defaults on error
+          }
+          const weight = totalValue > 0 ? (h.currentValue / totalValue) * 100 : 0;
+          const recommendation = recommendHolding(h, fundamentals, price, weight);
+          return { ...h, recommendation };
+        }),
+      );
+      sendJson(res, 200, { total: totalValue, holdings: enriched });
+    } catch (e) {
+      sendJson(res, 500, { error: e instanceof Error ? e.message : "Failed to fetch portfolio" });
+    }
+    return;
+  }
+
+  if (pathname === "/api/orders") {
+    try {
+      const orders = await deps.upstox.getOrders();
+      sendJson(res, 200, { orders });
+    } catch (e) {
+      sendJson(res, 500, { error: e instanceof Error ? e.message : "Failed to fetch orders" });
+    }
+    return;
+  }
+
+  if (pathname === "/api/trade" && req.method === "POST") {
+    const body = (await readBody(req)) as {
+      symbol?: string;
+      side?: string;
+      qty?: number;
+      type?: string;
+      limitPrice?: number;
+      confirm?: boolean;
+    };
+    if (body.confirm !== true) {
+      sendJson(res, 400, { error: "Trade not confirmed. Set confirm:true to place a real order." });
+      return;
+    }
+    if (!body.symbol || !body.side || !body.qty || !body.type) {
+      sendJson(res, 400, { error: "Missing symbol, side, qty, or type." });
+      return;
+    }
+    try {
+      const result = await deps.upstox.placeOrder({
+        symbol: body.symbol,
+        qty: body.qty,
+        side: body.side === "SELL" ? "SELL" : "BUY",
+        type: body.type === "LIMIT" ? "LIMIT" : "MARKET",
+        limitPrice: body.limitPrice,
+        confirm: true,
+      });
+      sendJson(res, 200, { id: result.id });
+    } catch (e) {
+      sendJson(res, 500, { error: e instanceof Error ? e.message : "Order placement failed" });
+    }
+    return;
+  }
+
+  if (pathname === "/api/ai") {
+    let available = false;
+    try {
+      const ollama = deps.ollama ?? new OllamaService();
+      available = await ollama.isRunning();
+    } catch {
+      available = false;
+    }
+    sendJson(res, 200, { available });
+    return;
+  }
+
   if (pathname === "/api/quote") {
     const symbol = searchParams.get("symbol")?.toUpperCase();
     if (!symbol) {
       sendJson(res, 400, { error: "Missing ?symbol=X" });
       return;
     }
-    const quote = await yahoo.getQuote(symbol);
+    const quote = await deps.yahoo.getQuote(symbol);
     const parsed = QuoteSchema.safeParse(quote);
     if (!parsed.success) {
       sendJson(res, 502, { error: `Invalid quote data from upstream: ${parsed.error.message}` });
@@ -113,7 +273,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse) {
       });
       return;
     }
-    const prices = await yahoo.getHistoricalPrices(symbol, range);
+    const prices = await deps.yahoo.getHistoricalPrices(symbol, range);
     if (prices.length === 0) {
       sendJson(res, 404, { error: `No price data for ${symbol}` });
       return;
@@ -172,14 +332,71 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse) {
   });
 }
 
-const server = http.createServer(wrap(route));
-server.listen(PORT, () => {
-  const url = `http://localhost:${PORT}`;
-  console.log(`StockPulse dashboard: ${url}`);
-  if (process.env.OPEN_BROWSER === "1") {
-    const cmd =
-      process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-    const args = process.platform === "win32" ? [] : [url];
-    spawn(cmd, args, { stdio: "ignore", detached: true }).unref();
-  }
-});
+export interface ServerOptions {
+  port?: number;
+  realBroker?: boolean;
+  deps?: Partial<ServerDeps>;
+}
+
+export async function createServer(opts: ServerOptions = {}): Promise<http.Server> {
+  const realBroker = opts.realBroker ?? true;
+  const deps: ServerDeps = {
+    upstox:
+      opts.deps?.upstox ??
+      (realBroker
+        ? getUpstoxClient()
+        : {
+            name: "upstox",
+            isAuthenticated: false,
+            getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
+            authenticate: async () => {},
+            getHoldings: async () => [],
+            getPositions: async () => [],
+            getOrders: async () => [],
+            placeOrder: async () => ({ id: "mock-order" }),
+          }),
+    yahoo: opts.deps?.yahoo ?? new YahooFinanceService(),
+    getFundamentals:
+      opts.deps?.getFundamentals ??
+      (realBroker
+        ? () => getNifty500Fundamentals()
+        : async () => [
+            {
+              symbol: "RELIANCE",
+              peRatio: 15,
+              pbRatio: 2,
+              dividendYield: 1.5,
+              roe: 18,
+              debtToEquity: 0.5,
+              marketCap: 1500000,
+            },
+          ]),
+    ollama:
+      opts.deps?.ollama ??
+      (realBroker ? new OllamaService() : ({ isRunning: async () => false } as OllamaService)),
+  };
+
+  return http.createServer(wrap((req, res) => router(req, res, deps)));
+}
+
+const isMain =
+  process.argv[1] &&
+  (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js"));
+
+if (isMain) {
+  const s = await createServer({ port: PORT, realBroker: true });
+  s.listen(PORT, () => {
+    const url = `http://localhost:${PORT}`;
+    console.log(`StockPulse dashboard: ${url}`);
+    if (process.env.OPEN_BROWSER === "1") {
+      const cmd =
+        process.platform === "darwin"
+          ? "open"
+          : process.platform === "win32"
+            ? "start"
+            : "xdg-open";
+      const args = process.platform === "win32" ? [] : [url];
+      spawn(cmd, args, { stdio: "ignore", detached: true }).unref();
+    }
+  });
+}
