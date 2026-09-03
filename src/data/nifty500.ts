@@ -10,18 +10,19 @@ const SYMBOL_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function parseNifty500Csv(csv: string): string[] {
   const rows = parse(csv, { skip_empty_lines: true, relax_column_count: true }) as string[][];
-  const header = rows[0] ?? [];
-  const symbolCol = header.findIndex((h) => String(h).trim().toUpperCase() === "SYMBOL");
-  const headerWidth = header.length;
-  const candidates: string[] = [];
-  for (const row of rows) {
-    const cells = symbolCol >= 0 && row.length === headerWidth ? [row[symbolCol]] : row;
-    for (const cell of cells) {
-      const v = String(cell).trim().toUpperCase();
-      if (v && v !== "SYMBOL") candidates.push(v);
-    }
+  const symbols = new Set<string>();
+  const firstRow = rows[0] ?? [];
+  const headerTokens = firstRow.map((h) => String(h).trim().toUpperCase());
+  const symbolCol = headerTokens.indexOf("SYMBOL");
+  const dataRows = symbolCol >= 0 ? rows.slice(1) : rows;
+  for (const row of dataRows) {
+    const cell = symbolCol >= 0 ? row[symbolCol] : row[0];
+    const v = String(cell ?? "")
+      .trim()
+      .toUpperCase();
+    if (v && v !== "SYMBOL" && /^[A-Z0-9&.-]+$/.test(v)) symbols.add(v);
   }
-  return Array.from(new Set(candidates));
+  return Array.from(symbols);
 }
 
 const yahoo = new YahooFinanceService();
@@ -32,6 +33,9 @@ let inflight: Promise<Fundamentals[]> | null = null;
 export async function getNifty500Symbols(): Promise<string[]> {
   if (symbolsCache && Date.now() - symbolsCache.at < SYMBOL_TTL_MS) return symbolsCache.symbols;
   const res = await fetch(NSE_CSV_URL, { headers: { "User-Agent": "Mozilla/5.0" } });
+  if (!res.ok) {
+    throw new Error(`NSE index CSV fetch failed with HTTP ${res.status}`);
+  }
   const csv = await res.text();
   const symbols = parseNifty500Csv(csv);
   if (symbols.length < 50) {
