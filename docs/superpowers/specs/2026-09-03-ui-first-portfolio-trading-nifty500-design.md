@@ -8,7 +8,7 @@ Status: Draft for review
 StockPulse is a TypeScript stock-research tool. Today it is a CLI-first app
 with a supplementary web dashboard. The user wants to:
 
-1. See their live broker holdings (Kite + FYERS) with P&L in the UI.
+1. See their live broker holdings (via Upstox) with P&L in the UI.
 2. Get rule-based recommendations (buy more / hold / sell) for stocks already
    in their portfolio.
 3. Execute real trades from the UI, with tracked history.
@@ -24,8 +24,15 @@ with a supplementary web dashboard. The user wants to:
   no holdings/positions/trade-history methods.
 - `src/services/fyers.ts` is wired through the CLI `auth` command only.
   `placeOrder` exists but is never called from any command or endpoint.
-- Neither broker exposes holdings/positions or trade history — the critical
-  gap for the portfolio view.
+- **Research found Upstox is the best broker for this app** — free API (vs
+  Kite's ~₹2000/mo and FYERS' paid realtime data), OAuth 2.0 authorization-code
+  flow (same shape as the existing FYERS/Kite clients), native holdings/
+  positions/orders endpoints, a full sandbox, and an **Analytics Token** that
+  avoids daily re-auth for market data and read-only portfolio. FYERS adds no
+  capability Upstox lacks for this single-user, manual-trading app.
+  **Both Kite and FYERS are therefore removed; Upstox is the sole broker.**
+- Neither existing broker exposes holdings/positions or trade history — the
+  critical gap for the portfolio view.
 - Trade tracking is a manual SQLite journal only; not linked to any broker.
 - The screener universe is hardcoded in `src/data/nifty50.ts` (~49 static
   fundamentals rows). `getLiveNifty50Fundamentals` fetches live data for those
@@ -38,7 +45,9 @@ with a supplementary web dashboard. The user wants to:
 ## Goals
 
 - Dynamic NIFTY 500 screener universe, sourced live (no hardcoded data).
-- Unified broker layer so Kite and FYERS are interchangeable.
+- **Unified broker layer** so Upstox is the sole broker, exposed through a
+  shared `Broker` interface so more brokers can be added later with minimal
+  cost.
 - Portfolio/holdings view with live P&L and per-holding recommendations.
 - Mandatory-safeguard trade execution in the UI.
 - Remove the CLI as an interface surface.
@@ -90,7 +99,15 @@ fundamentals rows in `nifty50.ts` are deleted; the filter definitions remain
   `src/data/live-nifty50.ts` reworked to drive from the dynamic NIFTY 500
   source.
 
-## 2. Broker Abstraction & Holdings/Positions
+## 2. Broker Layer & Holdings/Positions
+
+**Broker choice (researched):** Upstox is the **sole broker**. Versus Kite,
+Upstox is free (Kite is ~₹2000/mo); versus FYERS, Upstox adds native holdings/
+positions/orders endpoints, a full sandbox, and an **Analytics Token** that
+avoids daily re-auth for market data and read-only portfolio access. For this
+single-user, manual-trading app, neither Kite nor FYERS adds capability Upstox
+lacks, so both are **removed**. Implementing Upstox behind a shared `Broker`
+interface keeps the option of adding more brokers cheap later.
 
 **New `src/services/broker-types.ts`** — shared types:
 
@@ -138,7 +155,7 @@ interface PlaceOrderParams {
 
 ```ts
 interface Broker {
-  readonly name: "fyers" | "kite"
+  readonly name: "upstox"
   isAuthenticated: boolean
   getAuthUrl(): string
   authenticate(code: string): Promise<void>
@@ -148,28 +165,44 @@ interface Broker {
   placeOrder(params: PlaceOrderParams & { confirm: true }): Promise<{ id: string }>
 }
 
-function getBroker(name: "fyers" | "kite"): Broker
+function getBroker(): Broker
 ```
 
-Both `FyersClient` and `KiteConnectService` implement `Broker`.
+The new `UpstoxClient` (new file `src/services/upstox.ts`) implements `Broker`.
+The interface is kept broker-agnostic (a `name` string, not a union literal) so
+additional brokers can implement it later.
 
-### New methods on the existing services
+### Upstox service
 
-- **Kite** (`src/services/kite-connect.ts`): `getHoldings`, `getPositions`,
-  `getOrders` via the official `kiteconnect` SDK's `getHoldings`, `getPositions`,
-  `getOrderBook`. Kite natively returns avg price, qty, ltp, pnl, day change.
-- **FYERS** (`src/services/fyers.ts`): `getHoldings`, `getPositions`,
-  `getOrders` via FYERS v3 `/holdings`, `/positions`, `/orders` endpoints.
+**New `src/services/upstox.ts`** — `UpstoxClient` implementing `Broker` via the
+Upstox Developer API v3 (REST OAuth2 + Node.js SDK):
+
+- `getAuthUrl()` / `authenticate(code)` — OAuth 2.0 authorization-code flow.
+- `getHoldings()` — `/portfolio/long-term-holdings`.
+- `getPositions()` — `/portfolio/short-term-positions`.
+- `getOrders()` — `/orders`.
+- `placeOrder()` — `/order/place` (market/limit), requiring `confirm: true`.
+- **Analytics Token** for market-data + read-only portfolio endpoints where
+  supported, avoiding daily re-auth.
+
+### Removed services and deps
+
+- **Remove `src/services/kite-connect.ts`** and the `kiteconnect` dependency
+  (redundant to Upstox).
+- **Remove `src/services/fyers.ts`** and its usage (no longer needed; Upstox
+  covers the same capabilities with OAuth + sandbox + analytics token).
+  Drop `docs/fyers-trading.md`.
 
 ### Token persistence
 
 Currently tokens are in-memory and lost on restart. Add a SQLite
 `broker_tokens` table (in the existing `data/stockpulse.db`) storing the
-access/refresh token per broker so the dashboard shows holdings without a
-re-login each restart.
+Upstox access token so the dashboard shows holdings without a re-login each
+restart.
 
-- Kite tokens expire at 6 AM daily → re-auth flow needed on expiry.
-- FYERS supports refresh tokens → add a refresh path.
+- Upstox: standard access token expires daily; the **Analytics Token** (read-
+  only portfolio + market data) avoids daily re-auth where the user has a
+  registered static IP. Persist both.
 - Tokens are secrets; stored in the local gitignored DB only, never logged or
   committed.
 
@@ -217,7 +250,8 @@ Located in `public/` (`index.html`, `app.js`, `style.css`). Add a Portfolio tab.
   **confirmation modal with red warning** ("This places a REAL order with your
   broker"). User must click an explicit confirm button.
 - **Trade history** section: recent broker orders with status.
-- **Broker switcher** at top: FYERS / Kite, showing which is authenticated.
+- **Broker status** at top: shows whether Upstox is authenticated (with a
+  connect/re-auth action). No broker switcher needed with a single broker.
 - **Optional AI deep-dive** panel: if Ollama is running, show a free-text
   analysis for a selected holding; if not, show "Ollama not detected" and
   disable the pane without affecting anything else.
@@ -226,12 +260,12 @@ Located in `public/` (`index.html`, `app.js`, `style.css`). Add a Portfolio tab.
 
 Add endpoints (server currently only handles GET; add POST body parsing):
 
-- `GET /api/brokers` — which brokers are authenticated (and their auth URLs).
-- `GET /api/portfolio` — holdings for the active broker merged with live
-  quotes and per-holding recommendations.
-- `GET /api/orders` — recent orders/trade history for the active broker.
-- `POST /api/trade` — place a real order. Body: `{ broker, symbol, side, qty,
-  type, limitPrice?, confirm: true }`. **Reject if `confirm !== true`** (a
+- `GET /api/broker` — Upstox auth status and its auth URL.
+- `GET /api/portfolio` — holdings merged with live quotes and per-holding
+  recommendations.
+- `GET /api/orders` — recent orders/trade history.
+- `POST /api/trade` — place a real order. Body: `{ symbol, side, qty, type,
+  limitPrice?, confirm: true }`. **Reject if `confirm !== true`** (a
   server-side backstop to the UI confirmation).
 - `POST /api/broker/auth` — complete OAuth (accept auth code, store tokens).
 
@@ -257,21 +291,22 @@ stub, which is removed along with the CLI).
 Update all docs to the UI-first state:
 
 - `getting-started.md` — remove CLI commands; document starting the dashboard.
-- `architecture.md` — add broker abstraction layer, dynamic universe, holding
+- `architecture.md` — add broker layer, dynamic universe, holding
   recommendation engine.
-- `data-sources.md` — document both brokers (Kite + FYERS), NSE index CSV,
-  Yahoo; clarify why multiple sources are used.
+- `data-sources.md` — document Upstox (sole broker), NSE index CSV, Yahoo;
+  clarify why multiple sources are used.
 - `screeners.md` — NIFTY 500 dynamic universe; remove "stub" note.
 - `personalities.md` — 8 filters across full dynamic NIFTY 500.
 - `dashboard.md` — Portfolio tab, trade execution, safety confirmation, POST
   endpoints.
 - `trade-journal.md` — broker trade history alongside the manual journal.
 - `ai-insights.md` — Ollama now optional UI deep-dive; not core.
-- `fyers-trading.md` — unchanged usage, but note UI path.
 - `backtesting.md` — largely unchanged (engine untouched); update any CLI
   references.
 - `development.md` — update verification steps (no CLI), add new engine tests.
-- **Add** `docs/kite-trading.md` (currently missing despite the code existing).
+- **Remove** `docs/fyers-trading.md` (no longer relevant — FYERS removed).
+- **Add** `docs/upstox-trading.md` (OAuth setup, holdings/orders endpoints,
+  analytics token, safety/security notes).
 
 ## Testing
 
@@ -293,7 +328,8 @@ Update all docs to the UI-first state:
 ## Open Questions / Decisions Log
 
 - NIFTY 500 symbol source → **NSE index CSV**, Yahoo fallback. (decided)
-- Broker strategy → **Keep both** Kite + FYERS behind abstraction. (decided)
+- Broker strategy → **Upstox sole broker** behind a shared `Broker` interface;
+  Kite and FYERS **removed**. (decided via spike research)
 - Trade safety → **Confirm + warn** in UI, `confirm: true` server backstop. (decided)
 - Skill history → **Broker history + manual journal** both shown. (decided)
 - Recommendation engine → **Rule-based** (no Ollama). (decided)
