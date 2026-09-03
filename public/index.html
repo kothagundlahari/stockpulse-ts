@@ -18,6 +18,7 @@
       <button class="tab-btn" data-tab="backtest">Backtest</button>
       <button class="tab-btn" data-tab="journal">Journal</button>
       <button class="tab-btn" data-tab="news">News</button>
+      <button class="tab-btn" data-tab="portfolio">Portfolio</button>
     </nav>
 
     <main>
@@ -63,6 +64,57 @@
           <button id="news-fetch" class="btn">Get News</button>
         </div>
         <div id="news-list" class="card"></div>
+      </section>
+
+      <!-- Portfolio -->
+      <section id="tab-portfolio" class="tab-panel">
+        <div class="card" style="margin-bottom: 1rem;">
+          <div class="row" style="margin-bottom: 0; justify-content: space-between;">
+            <div id="broker-status"><span class="muted">Checking broker status…</span></div>
+            <div id="ai-deepdive"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 1rem;">
+          <h3 style="margin-top: 0; margin-bottom: 0.75rem;">Trade Execution</h3>
+          <div class="row">
+            <input id="trade-symbol" placeholder="Symbol (e.g. RELIANCE)" />
+            <input id="trade-qty" type="number" min="1" step="1" placeholder="Quantity" />
+            <select id="trade-side">
+              <option value="BUY">BUY</option>
+              <option value="SELL">SELL</option>
+            </select>
+            <select id="trade-type">
+              <option value="MARKET" selected>MARKET</option>
+              <option value="LIMIT">LIMIT</option>
+            </select>
+            <input id="trade-price" type="number" step="any" min="0.01" placeholder="Limit Price" style="display: none;" />
+            <button id="trade-open" class="btn">Place Trade</button>
+          </div>
+        </div>
+
+        <!-- Trade Confirmation Modal -->
+        <div id="trade-modal" class="modal hidden">
+          <div class="modal-content">
+            <h3>Confirm Trade</h3>
+            <p class="modal-warning">⚠️ WARNING: This places a REAL order with your broker.</p>
+            <p class="modal-summary"></p>
+            <div class="modal-actions">
+              <button id="trade-cancel" class="btn btn-secondary">Cancel</button>
+              <button id="trade-confirm" class="btn btn-danger">Confirm Order</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 1rem;">
+          <h3 style="margin-top: 0; margin-bottom: 0.75rem;">Holdings</h3>
+          <div id="portfolio-holdings"><p class="muted">Loading…</p></div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top: 0; margin-bottom: 0.75rem;">Order History</h3>
+          <div id="portfolio-orders"><p class="muted">Loading…</p></div>
+        </div>
       </section>
     </main>
 

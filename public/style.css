@@ -213,6 +213,129 @@ th {
   font-weight: 600;
 }
 
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(3px);
+}
+
+.modal.hidden {
+  display: none !important;
+}
+
+.modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.modal-warning {
+  color: var(--red);
+  font-weight: 600;
+  margin: 0.75rem 0;
+}
+
+.modal-summary {
+  font-size: 0.95rem;
+  margin: 1rem 0;
+  color: var(--text);
+  background: var(--surface-2);
+  padding: 0.75rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--red);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+  margin-bottom: 0;
+}
+
+.btn-danger {
+  background: var(--red);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #ef4444;
+}
+
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn-secondary:hover {
+  background: #475569;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge.positive {
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--green);
+  border: 1px solid var(--green);
+}
+
+.badge.negative {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+
+.badge.neutral {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--muted);
+  border: 1px solid var(--muted);
+}
+
+.holding {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.holding:last-child {
+  border-bottom: none;
+}
+
+.desc {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
 footer {
   padding: 1rem 2rem;
   color: var(--muted);
