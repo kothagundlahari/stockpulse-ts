@@ -25,7 +25,25 @@ export interface BacktestResult {
   maxDrawdown: number;
 }
 
-type Signal = "BUY" | "SELL" | "HOLD";
+export type Signal = "BUY" | "SELL" | "HOLD";
+
+function avg(data: DailyPrice[], idx: number, period: number): number {
+  let sum = 0;
+  for (let i = idx - period + 1; i <= idx; i++) {
+    sum += data[i].close;
+  }
+  return sum / period;
+}
+
+/** SMA crossover strategy: BUY when short SMA crosses above long, SELL when below. */
+export function smaCrossover(data: DailyPrice[], idx: number): Signal {
+  if (idx < 20) return "HOLD";
+  const shortSma = avg(data, idx, 10);
+  const longSma = avg(data, idx, 20);
+  if (shortSma > longSma) return "BUY";
+  if (shortSma < longSma) return "SELL";
+  return "HOLD";
+}
 
 /**
  * Backtesting engine with no look-ahead bias.

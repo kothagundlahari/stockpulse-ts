@@ -26,6 +26,17 @@ export const QuoteSchema = z.object({
 
 export type Quote = z.infer<typeof QuoteSchema>;
 
+export const HistoricalPriceSchema = z.object({
+  date: z.string(),
+  open: z.number(),
+  high: z.number(),
+  low: z.number(),
+  close: z.number(),
+  volume: z.number(),
+});
+
+export type HistoricalPrice = z.infer<typeof HistoricalPriceSchema>;
+
 export const FundamentalsSchema = z.object({
   symbol: z.string(),
   marketCap: z.number().optional(),

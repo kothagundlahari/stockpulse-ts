@@ -39,7 +39,7 @@ export class YahooFinanceService {
     const meta = result.meta;
     const previousClose = meta.chartPreviousClose ?? meta.regularMarketPreviousClose;
     const price = meta.regularMarketPrice ?? previousClose;
-    const change = price - previousClose;
+    const change = previousClose != null ? price - previousClose : 0;
     const changePercent =
       meta.regularMarketChangePercent ?? (previousClose ? (change / previousClose) * 100 : 0);
 

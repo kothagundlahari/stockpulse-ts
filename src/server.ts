@@ -2,14 +2,30 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import { z } from "zod";
 import { getLiveNifty50Fundamentals, mergeFundamentals } from "./data/live-nifty50.js";
 import { PERSONALITIES } from "./data/nifty50.js";
-import { BacktestEngine, type DailyPrice } from "./engines/backtest.js";
+import { BacktestEngine, smaCrossover } from "./engines/backtest.js";
 import { DatabaseService } from "./services/database.js";
 import { fetchStockNews } from "./services/news.js";
 import { YahooFinanceService } from "./services/yahoo-finance.js";
+import { HistoricalPriceSchema, QuoteSchema } from "./types/index.js";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
+
+const VALID_RANGES = new Set([
+  "1d",
+  "5d",
+  "1mo",
+  "3mo",
+  "6mo",
+  "1y",
+  "2y",
+  "5y",
+  "10y",
+  "ytd",
+  "max",
+]);
 
 const yahoo = new YahooFinanceService();
 const PORT = Number(process.env.PORT ?? 8787);
@@ -49,7 +65,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse) {
     return;
   }
 
-  if (pathname === "/api/personalities/:id" || pathname.startsWith("/api/personalities/")) {
+  if (pathname.startsWith("/api/personalities/")) {
     const id = pathname.split("/").pop();
     const personality = PERSONALITIES.find((p) => p.id === id);
     if (!personality) {
@@ -74,7 +90,13 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse) {
       sendJson(res, 400, { error: "Missing ?symbol=X" });
       return;
     }
-    sendJson(res, 200, await yahoo.getQuote(symbol));
+    const quote = await yahoo.getQuote(symbol);
+    const parsed = QuoteSchema.safeParse(quote);
+    if (!parsed.success) {
+      sendJson(res, 502, { error: `Invalid quote data from upstream: ${parsed.error.message}` });
+      return;
+    }
+    sendJson(res, 200, parsed.data);
     return;
   }
 
@@ -85,19 +107,22 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse) {
       sendJson(res, 400, { error: "Missing ?symbol=X" });
       return;
     }
+    if (!VALID_RANGES.has(range)) {
+      sendJson(res, 400, {
+        error: `Invalid ?range=${range}. Valid values: ${[...VALID_RANGES].join(", ")}`,
+      });
+      return;
+    }
     const prices = await yahoo.getHistoricalPrices(symbol, range);
     if (prices.length === 0) {
       sendJson(res, 404, { error: `No price data for ${symbol}` });
       return;
     }
-    const smaCrossover = (data: DailyPrice[], idx: number): "BUY" | "SELL" | "HOLD" => {
-      if (idx < 20) return "HOLD";
-      const shortSma = avg(data, idx, 10);
-      const longSma = avg(data, idx, 20);
-      if (shortSma > longSma) return "BUY";
-      if (shortSma < longSma) return "SELL";
-      return "HOLD";
-    };
+    const parsedPrices = z.array(HistoricalPriceSchema).safeParse(prices);
+    if (!parsedPrices.success) {
+      sendJson(res, 502, { error: `Invalid historical price data: ${parsedPrices.error.message}` });
+      return;
+    }
     const engine = new BacktestEngine();
     const result = engine.run(prices, 100000, smaCrossover);
     sendJson(res, 200, { symbol, range, result });
@@ -145,14 +170,6 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse) {
     res.writeHead(200, { "Content-Type": `${type[ext] ?? "text/plain"}; charset=utf-8` });
     res.end(data);
   });
-}
-
-function avg(data: DailyPrice[], idx: number, period: number): number {
-  let sum = 0;
-  for (let i = idx - period + 1; i <= idx; i++) {
-    sum += data[i].close;
-  }
-  return sum / period;
 }
 
 const server = http.createServer(wrap(route));

@@ -97,4 +97,16 @@ describe("YahooFinanceService", () => {
     mockedAxios.get.mockRejectedValueOnce(new Error("Network error"));
     await expect(service.getQuote("INVALID")).rejects.toThrow("Network error");
   });
+
+  it("does not produce NaN when previousClose is missing", async () => {
+    mockedAxios.get.mockResolvedValueOnce(
+      chartResponse({ chartPreviousClose: undefined, regularMarketPreviousClose: undefined }),
+    );
+
+    const quote = await service.getQuote("RELIANCE");
+    expect(quote.change).toBe(0);
+    expect(quote.changePercent).toBe(0);
+    expect(Number.isNaN(quote.change)).toBe(false);
+    expect(Number.isNaN(quote.changePercent)).toBe(false);
+  });
 });

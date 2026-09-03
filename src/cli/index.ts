@@ -3,7 +3,7 @@ import chalk from "chalk";
 import { Command } from "commander";
 import { getLiveNifty50Fundamentals, mergeFundamentals } from "../data/live-nifty50.js";
 import { PERSONALITIES } from "../data/nifty50.js";
-import { BacktestEngine, type DailyPrice } from "../engines/backtest.js";
+import { BacktestEngine, type DailyPrice, smaCrossover } from "../engines/backtest.js";
 import { DatabaseService } from "../services/database.js";
 import { FyersClient } from "../services/fyers.js";
 import { fetchStockNews } from "../services/news.js";
@@ -57,16 +57,25 @@ program
     }
   });
 
+const VALID_RANGES = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"];
+
 program
   .command("backtest <symbol>")
   .description("Run a backtest on a stock")
   .option("-s, --strategy <name>", "strategy: buy_hold, sma_crossover", "buy_hold")
   .option("-c, --capital <amount>", "initial capital", "100000")
-  .option("-r, --range <range>", "data range: 1mo, 3mo, 6mo, 1y, 2y, 5y", "1y")
+  .option("-r, --range <range>", `data range: ${VALID_RANGES.join(", ")}`, "1y")
   .action(async (symbol: string, options: { strategy: string; capital: string; range: string }) => {
     const yahoo = new YahooFinanceService();
     const engine = new BacktestEngine();
     const capital = parseFloat(options.capital);
+
+    if (!VALID_RANGES.includes(options.range)) {
+      console.error(
+        chalk.red(`Invalid range "${options.range}". Valid values: ${VALID_RANGES.join(", ")}`),
+      );
+      process.exit(1);
+    }
 
     console.log(chalk.bold(`\nBacktesting ${symbol.toUpperCase()} (${options.range})...\n`));
 
@@ -79,12 +88,7 @@ program
 
       const strategy = (data: DailyPrice[], idx: number) => {
         if (options.strategy === "sma_crossover") {
-          if (idx < 20) return "HOLD";
-          const short = avg(data, idx, 10);
-          const long = avg(data, idx, 20);
-          if (short > long) return "BUY";
-          if (short < long) return "SELL";
-          return "HOLD";
+          return smaCrossover(data, idx);
         }
         return idx === 0 ? "BUY" : "HOLD";
       };
@@ -108,14 +112,6 @@ program
       process.exit(1);
     }
   });
-
-function avg(data: DailyPrice[], idx: number, period: number): number {
-  let sum = 0;
-  for (let i = idx - period + 1; i <= idx; i++) {
-    sum += data[i].close;
-  }
-  return sum / period;
-}
 
 program
   .command("screen")

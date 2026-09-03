@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BacktestEngine } from "../src/engines/backtest.js";
+import { BacktestEngine, smaCrossover } from "../src/engines/backtest.js";
 
 describe("BacktestEngine", () => {
   const dailyPrices = [
@@ -71,5 +71,51 @@ describe("BacktestEngine", () => {
     const result = engine.run(dailyPrices, 100000, () => "HOLD");
     expect(result.trades.length).toBe(0);
     expect(result.winRate).toBe(0);
+  });
+
+  describe("smaCrossover", () => {
+    it("holds until at least 20 data points are available", () => {
+      const prices = dailyPrices.slice(0, 10);
+      expect(smaCrossover(prices, 19)).toBe("HOLD");
+      expect(smaCrossover(prices, 1)).toBe("HOLD");
+    });
+
+    it("signals BUY when the short SMA crosses above the long SMA", () => {
+      // Build a rising series long enough (>= 20 points) to compute both SMAs.
+      const prices = Array.from({ length: 30 }, (_, i) => ({
+        date: `2024-01-${String(i + 1).padStart(2, "0")}`,
+        open: 100 + i,
+        high: 100 + i,
+        low: 100 + i,
+        close: 100 + i,
+        volume: 1000,
+      }));
+      expect(smaCrossover(prices, 20)).toBe("BUY");
+    });
+
+    it("signals SELL when the short SMA crosses below the long SMA", () => {
+      // Build a falling series long enough (>= 20 points) to compute both SMAs.
+      const prices = Array.from({ length: 30 }, (_, i) => ({
+        date: `2024-01-${String(i + 1).padStart(2, "0")}`,
+        open: 100 - i,
+        high: 100 - i,
+        low: 100 - i,
+        close: 100 - i,
+        volume: 1000,
+      }));
+      expect(smaCrossover(prices, 20)).toBe("SELL");
+    });
+
+    it("returns HOLD when the short and long SMAs are equal", () => {
+      const prices = Array.from({ length: 30 }, () => ({
+        date: "2024-01-01",
+        open: 100,
+        high: 100,
+        low: 100,
+        close: 100,
+        volume: 1000,
+      }));
+      expect(smaCrossover(prices, 20)).toBe("HOLD");
+    });
   });
 });
