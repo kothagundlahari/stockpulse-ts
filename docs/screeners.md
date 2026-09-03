@@ -44,7 +44,7 @@ The engine compares raw numeric values. It does **not** divide by 100 for you:
 
 ## Feeding it data
 
-The screener needs an array of `Fundamentals`. In the current CLI, live fundamental fetching from Screener.in is a placeholder (see the `screen` command help). The engine is fully exercised by unit tests against realistic mock data (`tests/screener.test.ts`), so wiring a new data source is the only remaining step to run it live.
+The screener needs an array of `Fundamentals`. The CLI's `screen` command is currently a stub — it validates the flags but doesn't yet wire a live data source, so running it live is a remaining step. The engine is fully exercised by unit tests against realistic mock data (`tests/screener.test.ts`), and live fundamentals are already fetched from Yahoo Finance for the personality screeners (`getLiveNifty50Fundamentals` in `src/data/live-nifty50.ts`) — the same source can back the `screen` command.
 
 ## Using it in your own code
 

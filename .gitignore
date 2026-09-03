@@ -17,6 +17,9 @@ data/
 # Logs
 *.log
 
+# OMP session exports (transient artifacts)
+omp-session-*.html
+
 # Editor configs
 .idea/
 .vscode/

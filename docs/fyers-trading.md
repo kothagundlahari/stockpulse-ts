@@ -12,7 +12,7 @@ StockPulse can authenticate with **FYERS** and place orders. **Trading is delibe
 
 ## Authentication flow
 
-FYERS uses OAuth2 with the authorization-code flow. StorePulse implements it in `src/services/fyers.ts`.
+FYERS uses OAuth2 with the authorization-code flow. StockPulse implements it in `src/services/fyers.ts`.
 
 ### Step 1 — Print the auth URL
 

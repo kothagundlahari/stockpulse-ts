@@ -11,7 +11,7 @@ This guide walks you through installing and running StockPulse for the first tim
 ## Installation
 
 ```bash
-git clone https://github.com/kothagundlahari/stockpulse-ts.git && cd researchTool-ts
+git clone https://github.com/kothagundlahari/stockpulse-ts.git && cd stockpulse-ts
 pnpm install
 pnpm build
 ```

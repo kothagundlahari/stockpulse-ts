@@ -42,7 +42,7 @@ node dist/cli/index.js --help
 | Backtesting | ✅ | SMA crossover / buy-and-hold, no look-ahead bias |
 | Screeners | ✅ | Filterable by market cap, PE, ROE, etc. |
 | Personality Screeners | ✅ | 8 classic investor personalities over the NIFTY 50 |
-| Web Dashboard | ✅ | Local dashboard + JSON API (quotes, screeners, backtest, journal, news) |
+| Web Dashboard | ✅ | Local dashboard + JSON API (quotes, personalities, backtest, journal, news) |
 | Trade Journal | ✅ | SQLite persistence |
 | AI Insights | ✅ | Local Ollama inference |
 | FYERS Trading | ⚠️ | OAuth auth flow + order placement |

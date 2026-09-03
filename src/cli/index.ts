@@ -249,10 +249,7 @@ program
     const model = options.model ?? models[0].name;
     console.log(chalk.dim(`Using model: ${model}\n`));
 
-    const fundamentals = {
-      symbol: symbol.toUpperCase(),
-      note: "Fetching live fundamentals from Screener.in",
-    };
+    const fundamentals = await new YahooFinanceService().getFundamentals(symbol.toUpperCase());
     const insight = await ollama.generateInsight(model, symbol.toUpperCase(), fundamentals);
     console.log(insight);
   });
