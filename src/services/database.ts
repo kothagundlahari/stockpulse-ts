@@ -44,6 +44,12 @@ export class DatabaseService {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS broker_tokens (
+        broker TEXT PRIMARY KEY,
+        token TEXT NOT NULL,
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
     `);
   }
 
@@ -112,6 +118,22 @@ export class DatabaseService {
       ...row,
       criteria: JSON.parse(row.criteria),
     }));
+  }
+
+  setBrokerToken(broker: string, token: string): void {
+    this.db
+      .prepare(
+        `INSERT INTO broker_tokens (broker, token, updated_at) VALUES (?, ?, datetime('now'))
+         ON CONFLICT(broker) DO UPDATE SET token = excluded.token, updated_at = datetime('now')`,
+      )
+      .run(broker, token);
+  }
+
+  getBrokerToken(broker: string): string | null {
+    const row = this.db.prepare("SELECT token FROM broker_tokens WHERE broker = ?").get(broker) as
+      | { token: string }
+      | undefined;
+    return row?.token ?? null;
   }
 
   close(): void {
