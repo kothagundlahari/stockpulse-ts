@@ -203,6 +203,7 @@ async function loadPortfolio() {
               : "neutral";
         const pnlCls = (h.pnl ?? 0) >= 0 ? "positive" : "negative";
         const pnlPercentFormatted = (h.pnlPercent != null ? Number(h.pnlPercent) : 0).toFixed(2);
+        const dayCls = (h.dayChangePercent ?? 0) >= 0 ? "positive" : "negative";
         const reasons = h.recommendation?.reasons?.length
           ? h.recommendation.reasons.join(" · ")
           : "";
@@ -212,10 +213,11 @@ async function loadPortfolio() {
           <div class="metric"><div class="label">Qty</div><div class="value">${h.quantity}</div></div>
           <div class="metric"><div class="label">Avg</div><div class="value">${money(h.averagePrice)}</div></div>
           <div class="metric"><div class="label">LTP</div><div class="value">${money(h.ltp)}</div></div>
+          <div class="metric ${dayCls}"><div class="label">Day Chg</div><div class="value">${(h.dayChangePercent ?? 0) >= 0 ? "+" : ""}${h.dayChangePercent != null ? Number(h.dayChangePercent).toFixed(2) + "%" : "—"}</div></div>
           <div class="metric ${pnlCls}"><div class="label">P&L</div><div class="value">${h.pnl >= 0 ? "+" : ""}${money(h.pnl)} (${pnlPercentFormatted}%)</div></div>
           <div class="metric"><div class="label">Value</div><div class="value">${money(h.currentValue)}</div></div>
         </div>
-        ${reasons ? `<p class="desc">${reasons}</p>` : ""}
+        ${reasons ? `<details><summary class="muted">View reasons</summary><p class="desc">${reasons}</p></details>` : ""}
       </div>`;
       })
       .join("");
@@ -262,7 +264,9 @@ document.getElementById("trade-cancel")?.addEventListener("click", () => {
   document.getElementById("trade-modal").classList.add("hidden");
 });
 
-document.getElementById("trade-confirm")?.addEventListener("click", async () => {
+document.getElementById("trade-confirm")?.addEventListener("click", async (e) => {
+  const confirmBtn = e.currentTarget;
+  const originalText = confirmBtn.textContent;
   const modal = document.getElementById("trade-modal");
   const symbol = document.getElementById("trade-symbol").value.trim().toUpperCase();
   const qty = Number(document.getElementById("trade-qty").value);
@@ -276,6 +280,9 @@ document.getElementById("trade-confirm")?.addEventListener("click", async () => 
     payload.limitPrice = limitPrice;
   }
 
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = "Placing order...";
+
   try {
     const res = await fetch("/api/trade", {
       method: "POST",
@@ -286,10 +293,16 @@ document.getElementById("trade-confirm")?.addEventListener("click", async () => 
     if (!res.ok) throw new Error(data.error || "Order failed");
     alert(`Order placed: ${data.id}`);
     modal.classList.add("hidden");
+    document.getElementById("trade-symbol").value = "";
+    document.getElementById("trade-qty").value = "";
+    if (priceEl) priceEl.value = "";
     loadPortfolio();
     loadOrders();
-  } catch (e) {
-    alert(`Trade failed: ${e.message}`);
+  } catch (err) {
+    alert(`Trade failed: ${err.message}`);
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = originalText;
   }
 });
 
@@ -300,6 +313,7 @@ async function loadOrders() {
   try {
     const res = await fetch("/api/orders");
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load orders");
     if (!data.orders || !data.orders.length) {
       el.innerHTML = "<p>No orders yet.</p>";
       return;
