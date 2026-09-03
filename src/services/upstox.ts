@@ -35,6 +35,10 @@ export class UpstoxClient implements Broker {
     this.config.accessToken = res.data.access_token;
   }
 
+  getAccessToken(): string {
+    return this.config.accessToken ?? "";
+  }
+
   private headers(): Record<string, string> {
     if (!this.config.accessToken) {
       throw new Error("Not authenticated. Complete the Upstox OAuth flow first.");
