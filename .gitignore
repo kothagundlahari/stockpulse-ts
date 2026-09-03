@@ -4,8 +4,11 @@ node_modules/
 # Build output
 dist/
 
-# Data files
-data/
+# Data files (root-level DB directory only; not src/data/)
+/data/
+
+# Worktrees
+.worktrees/
 
 # Environment variables (.env contains FYERS API keys)
 .env
