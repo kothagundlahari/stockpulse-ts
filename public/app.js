@@ -353,7 +353,9 @@ function showBrokerNotice(type, text) {
   const noticeEl = document.getElementById("broker-notice");
   if (!noticeEl) return;
   noticeEl.className = `broker-banner ${type}`;
-  noticeEl.innerHTML = `<span>${text}</span><button type="button" class="btn btn-sm" style="margin-left:1rem;" onclick="this.parentElement.classList.add('hidden')">✕</button>`;
+  noticeEl.innerHTML = '<span class="broker-notice-text"></span><button type="button" class="btn btn-sm" style="margin-left:1rem;" onclick="this.parentElement.classList.add(\'hidden\')">✕</button>';
+  const span = noticeEl.querySelector(".broker-notice-text");
+  if (span) span.textContent = text;
   noticeEl.classList.remove("hidden");
 }
 
