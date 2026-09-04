@@ -87,6 +87,7 @@ function renderPersonalityDetail(active, total) {
                   <th>PE</th>
                   <th>ROE</th>
                   <th>Sector</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -94,11 +95,20 @@ function renderPersonalityDetail(active, total) {
                   .map(
                     (s) =>
                       `<tr>
-                        <td><strong>${s.symbol}</strong></td>
+                        <td>
+                          <button type="button" class="personality-symbol-btn" data-symbol="${s.symbol}" title="Click to trade ${s.symbol}">
+                            ${s.symbol}
+                          </button>
+                        </td>
                         <td>${formatMC(s.marketCap)}</td>
                         <td>${num(s.peRatio)}</td>
                         <td class="${typeof s.roe === "number" && s.roe >= 15 ? "positive" : ""}">${typeof s.roe === "number" && !Number.isNaN(s.roe) ? `${s.roe.toFixed(1)}%` : "—"}</td>
                         <td>${s.sector ?? "—"}</td>
+                        <td>
+                          <button type="button" class="btn btn-sm personality-buy-btn" data-symbol="${s.symbol}">
+                            Buy
+                          </button>
+                        </td>
                       </tr>`,
                   )
                   .join("")}
