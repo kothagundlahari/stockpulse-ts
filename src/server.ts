@@ -8,6 +8,7 @@ import { PERSONALITIES } from "./data/nifty50.js";
 import { getNifty500Fundamentals } from "./data/nifty500.js";
 import { BacktestEngine, smaCrossover } from "./engines/backtest.js";
 import { recommendHolding, smaFromDaily } from "./engines/holding-recommendation.js";
+import { rankPersonalityCandidates } from "./engines/personality-ranker.js";
 import { ScreenerEngine } from "./engines/screener.js";
 import { connectUpstox, disconnectUpstox, getUpstoxClient } from "./services/broker.js";
 import type { Broker } from "./services/broker-types.js";
@@ -130,13 +131,16 @@ export async function router(
   if (pathname === "/api/personalities") {
     try {
       const universe = await deps.getFundamentals();
-      const result = PERSONALITIES.map((p) => ({
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        matches: universe.filter(p.filter).length,
-        stocks: universe.filter(p.filter),
-      }));
+      const result = PERSONALITIES.map((p) => {
+        const rankedStocks = rankPersonalityCandidates(p.id, p.filter, universe);
+        return {
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          matches: rankedStocks.length,
+          stocks: rankedStocks,
+        };
+      });
       sendJson(res, 200, { total: universe.length, personalities: result });
     } catch (e) {
       sendJson(res, 500, {
@@ -156,13 +160,14 @@ export async function router(
       return;
     }
     const universe = await deps.getFundamentals();
+    const rankedStocks = rankPersonalityCandidates(personality.id, personality.filter, universe);
     sendJson(res, 200, {
       id: personality.id,
       name: personality.name,
       description: personality.description,
       total: universe.length,
-      matches: universe.filter(personality.filter).length,
-      stocks: universe.filter(personality.filter),
+      matches: rankedStocks.length,
+      stocks: rankedStocks,
     });
     return;
   }

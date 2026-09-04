@@ -698,6 +698,78 @@ describe("HTTP API", () => {
     expect(body.personalities[0]).toHaveProperty("stocks");
   });
 
+  it("GET /api/personalities returns candidate stocks with score sorted descending", async () => {
+    const res = await fetch(`${base}/api/personalities`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      personalities: Array<{ id: string; stocks: Array<{ symbol: string; score: number }> }>;
+    };
+    expect(body.personalities.length).toBeGreaterThan(0);
+    const withStocks = body.personalities.filter((p) => p.stocks.length > 0);
+    expect(withStocks.length).toBeGreaterThan(0);
+    for (const p of body.personalities) {
+      for (const s of p.stocks) {
+        expect(typeof s.score).toBe("number");
+      }
+      if (p.stocks.length > 1) {
+        for (let i = 0; i < p.stocks.length - 1; i++) {
+          expect(p.stocks[i].score).toBeGreaterThanOrEqual(p.stocks[i + 1].score);
+        }
+      }
+    }
+  });
+
+  it("GET /api/personalities/:id returns candidate stocks ranked descending by score", async () => {
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        getFundamentals: async () => [
+          {
+            symbol: "STOCK_LOW",
+            sector: "Finance",
+            peRatio: 12,
+            pbRatio: 1.8,
+            dividendYield: 1.0,
+            roe: 12,
+            debtToEquity: 0.4,
+            operatingMargin: 10,
+          },
+          {
+            symbol: "STOCK_HIGH",
+            sector: "Finance",
+            peRatio: 5,
+            pbRatio: 0.8,
+            dividendYield: 4.0,
+            roe: 25,
+            debtToEquity: 0.0,
+            operatingMargin: 25,
+          },
+        ],
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/personalities/klarman`);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        id: string;
+        stocks: Array<{ symbol: string; score: number }>;
+      };
+      expect(body.stocks.length).toBe(2);
+      expect(body.stocks[0].symbol).toBe("STOCK_HIGH");
+      expect(body.stocks[1].symbol).toBe("STOCK_LOW");
+      expect(typeof body.stocks[0].score).toBe("number");
+      expect(typeof body.stocks[1].score).toBe("number");
+      expect(body.stocks[0].score).toBeGreaterThan(body.stocks[1].score);
+    } finally {
+      customServer.close();
+    }
+  });
+
   it("GET /api/personalities/:id returns a single personality or 404", async () => {
     const res = await fetch(`${base}/api/personalities/buffett`);
     expect(res.status).toBe(200);
