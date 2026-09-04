@@ -21,3 +21,10 @@ export async function connectUpstox(authCode: string): Promise<void> {
   db.close();
   client = fresh;
 }
+
+export function disconnectUpstox(): void {
+  const db = new DatabaseService();
+  db.deleteBrokerToken("upstox");
+  db.close();
+  client = createUpstoxClient(undefined);
+}

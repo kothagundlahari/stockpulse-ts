@@ -89,6 +89,10 @@ export class DatabaseService {
     return row?.token ?? null;
   }
 
+  deleteBrokerToken(broker: string): void {
+    this.db.prepare("DELETE FROM broker_tokens WHERE broker = ?").run(broker);
+  }
+
   close(): void {
     this.db.close();
   }

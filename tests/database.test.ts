@@ -96,4 +96,13 @@ describe("broker tokens", () => {
     expect(db.getBrokerToken("nope")).toBeNull();
     db.close();
   });
+
+  it("deletes a stored broker token", () => {
+    const db = new DatabaseService(DB_PATH_1);
+    db.setBrokerToken("upstox", "tok-xyz");
+    expect(db.getBrokerToken("upstox")).toBe("tok-xyz");
+    db.deleteBrokerToken("upstox");
+    expect(db.getBrokerToken("upstox")).toBeNull();
+    db.close();
+  });
 });

@@ -1,14 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
-import { connectUpstox, getUpstoxClient } from "../src/services/broker.js";
+import { connectUpstox, disconnectUpstox, getUpstoxClient } from "../src/services/broker.js";
 
-const mockSetToken = vi.fn();
+let storedToken: string | null = "stored-token";
+const mockSetToken = vi.fn((_b: string, tok: string) => {
+  storedToken = tok;
+});
+const mockDeleteToken = vi.fn((_b: string) => {
+  storedToken = null;
+});
+
 vi.mock("../src/services/database.js", () => ({
   DatabaseService: class {
     getBrokerToken(b: string) {
-      return b === "upstox" ? "stored-token" : null;
+      return b === "upstox" ? storedToken : null;
     }
     setBrokerToken(b: string, tok: string) {
       mockSetToken(b, tok);
+    }
+    deleteBrokerToken(b: string) {
+      mockDeleteToken(b);
     }
     close() {}
   },
@@ -36,5 +46,12 @@ describe("broker factory", () => {
   it("connectUpstox authenticates and persists token", async () => {
     await connectUpstox("test-code");
     expect(mockSetToken).toHaveBeenCalledWith("upstox", "mock-auth-token");
+  });
+
+  it("disconnectUpstox deletes token and resets client", () => {
+    disconnectUpstox();
+    expect(mockDeleteToken).toHaveBeenCalledWith("upstox");
+    const client = getUpstoxClient();
+    expect(client.isAuthenticated).toBe(false);
   });
 });
