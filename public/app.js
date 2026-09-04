@@ -338,7 +338,7 @@ async function loadAiAvailability() {
     if (!res.ok) throw new Error();
     const data = await res.json();
     el.innerHTML = data.available
-      ? '<button class="btn" id="ai-analyze">Analyze selected holding (Ollama)</button>'
+      ? '<p class="muted">Ollama detected — AI deep-dive available.</p>'
       : '<p class="muted">Ollama not detected — AI deep-dive disabled.</p>';
   } catch {
     el.innerHTML = '<p class="muted">Ollama not detected — AI deep-dive disabled.</p>';

@@ -11,6 +11,7 @@ const mockStocks: Fundamentals[] = [
     dividendYield: 0.5,
     roe: 15,
     debtToEquity: 0.3,
+    revenueGrowth: 12,
   },
   {
     symbol: "TCS",
@@ -20,6 +21,7 @@ const mockStocks: Fundamentals[] = [
     dividendYield: 1.2,
     roe: 45,
     debtToEquity: 0.1,
+    revenueGrowth: 8,
   },
   {
     symbol: "HDFCBANK",
@@ -29,6 +31,7 @@ const mockStocks: Fundamentals[] = [
     dividendYield: 0.8,
     roe: 18,
     debtToEquity: 0.5,
+    revenueGrowth: 15,
   },
   {
     symbol: "INFY",
@@ -38,6 +41,7 @@ const mockStocks: Fundamentals[] = [
     dividendYield: 2,
     roe: 32,
     debtToEquity: 0.2,
+    revenueGrowth: 10,
   },
 ];
 
@@ -81,6 +85,13 @@ describe("ScreenerEngine", () => {
     const results = engine.filter(mockStocks, { minRoe: 20 });
     expect(results).toHaveLength(2);
     expect(results.map((s) => s.symbol)).toEqual(["TCS", "INFY"]);
+  });
+
+  it("filters by minimum revenue growth", () => {
+    const engine = new ScreenerEngine();
+    const results = engine.filter(mockStocks, { minRevenueGrowth: 11 });
+    expect(results).toHaveLength(2);
+    expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "HDFCBANK"]);
   });
 
   it("filters by maximum debt to equity", () => {

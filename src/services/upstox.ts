@@ -98,10 +98,11 @@ export class UpstoxClient implements Broker {
     if (!params.confirm) {
       throw new Error("Trade not confirmed. Pass confirm:true to place a real order.");
     }
+    const instrumentToken = await this.resolveInstrumentKey(params.symbol);
     const res = await axios.post(
       `${this.base}/order/place`,
       {
-        instrument_token: params.symbol,
+        instrument_token: instrumentToken,
         order_type: params.type === "LIMIT" ? "LIMIT" : "MARKET",
         transaction_type: params.side,
         quantity: params.qty,
@@ -112,6 +113,22 @@ export class UpstoxClient implements Broker {
       { headers: this.headers() },
     );
     return { id: String(res.data.data?.order_id ?? "") };
+  }
+
+  private async resolveInstrumentKey(symbol: string): Promise<string> {
+    const res = await axios.get(`${this.base}/instruments/search/${encodeURIComponent(symbol)}`, {
+      headers: this.headers(),
+    });
+    const rows: Array<Record<string, unknown>> = res.data.data ?? [];
+    const match = rows.find(
+      (r) => String(r.segment) === "NSE_EQ" && String(r.instrument_type) === "EQ",
+    );
+    if (match && typeof match.instrument_key === "string" && match.instrument_key) {
+      return match.instrument_key;
+    }
+    throw new Error(
+      `Could not resolve Upstox instrument key for symbol "${symbol}". Verify the symbol is valid on NSE.`,
+    );
   }
 }
 

@@ -126,6 +126,25 @@ export async function router(
 
   if (pathname === "/api/screen") {
     const universe = await deps.getFundamentals();
+    const numericParams = [
+      "minMarketCap",
+      "maxMarketCap",
+      "minPe",
+      "maxPe",
+      "minPb",
+      "maxPb",
+      "minDividendYield",
+      "minRoe",
+      "maxDebtToEquity",
+      "minRevenueGrowth",
+    ];
+    for (const name of numericParams) {
+      const raw = searchParams.get(name);
+      if (raw !== null && Number.isNaN(Number(raw))) {
+        sendJson(res, 400, { error: `Invalid numeric criteria "${name}".` });
+        return;
+      }
+    }
     const criteria: ScreenerCriteria = {};
     if (searchParams.has("minMarketCap"))
       criteria.minMarketCap = Number(searchParams.get("minMarketCap"));
