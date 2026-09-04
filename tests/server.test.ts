@@ -1,7 +1,9 @@
+import fs from "node:fs";
 import type http from "node:http";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createServer } from "../src/server.js";
 import type { Broker } from "../src/services/broker-types.js";
+import { DatabaseService } from "../src/services/database.js";
 import type { YahooFinanceService } from "../src/services/yahoo-finance.js";
 
 let server: http.Server;
@@ -257,6 +259,71 @@ describe("HTTP API", () => {
       expect(Array.isArray(holding.recommendation.reasons)).toBe(true);
     } finally {
       customServer.close();
+    }
+  });
+
+  it("GET /api/portfolio uses cached fundamentals from deps.db", async () => {
+    const testDbPath = "./data/test-server-portfolio-cache.db";
+    const db = new DatabaseService(testDbPath);
+    db.saveFundamentals([{ symbol: "TCS", peRatio: 28, marketCap: 1200000, roe: 35 }]);
+
+    const mockYahoo = {
+      getFundamentals: vi.fn(),
+      getHistoricalPrices: vi
+        .fn()
+        .mockResolvedValue([
+          { date: "2025-01-01", open: 3400, high: 3450, low: 3390, close: 3420, volume: 1000 },
+        ]),
+    };
+
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        db,
+        upstox: {
+          name: "upstox",
+          isAuthenticated: true,
+          getAuthUrl: () => "",
+          authenticate: async () => {},
+          getHoldings: async () => [
+            {
+              symbol: "TCS",
+              quantity: 5,
+              averagePrice: 3400,
+              ltp: 3500,
+              pnl: 500,
+              pnlPercent: 2.94,
+              dayChange: 50,
+              dayChangePercent: 1.45,
+              currentValue: 17500,
+            },
+          ],
+          getPositions: async () => [],
+          getOrders: async () => [],
+          placeOrder: async () => ({ id: "mock-order" }),
+        },
+        yahoo: mockYahoo as unknown as YahooFinanceService,
+      },
+    });
+
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/portfolio`);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.holdings[0].symbol).toBe("TCS");
+      expect(body.holdings[0].recommendation).toBeDefined();
+      expect(mockYahoo.getFundamentals).not.toHaveBeenCalled();
+    } finally {
+      customServer.close();
+      db.close();
+      if (fs.existsSync(testDbPath)) {
+        fs.unlinkSync(testDbPath);
+      }
     }
   });
 

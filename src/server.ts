@@ -45,6 +45,7 @@ export interface ServerDeps {
   upstox: UpstoxClient | Broker;
   yahoo: YahooFinanceService;
   getFundamentals: () => Promise<Fundamentals[]>;
+  db?: DatabaseService;
   ollama?: OllamaService;
   connectUpstox?: (code: string) => Promise<Broker>;
   disconnectUpstox?: () => void;
@@ -301,7 +302,13 @@ export async function router(
           let fundamentals: Fundamentals | undefined;
           let price = { current: h.ltp, sma10: 0, sma50: 0 };
           try {
-            fundamentals = await deps.yahoo.getFundamentals(h.symbol);
+            const cached = deps.db?.getCachedFundamentals(h.symbol);
+            if (cached && Date.now() - cached.updatedAt < 24 * 60 * 60 * 1000) {
+              fundamentals = cached.data;
+            } else {
+              fundamentals = await deps.yahoo.getFundamentals(h.symbol);
+              deps.db?.saveFundamentals([fundamentals]);
+            }
             const daily = await deps.yahoo.getHistoricalPrices(h.symbol, "3mo");
             const sma = smaFromDaily(daily);
             price = { current: h.ltp, sma10: sma.sma10, sma50: sma.sma50 };
@@ -440,9 +447,9 @@ export async function router(
   }
 
   if (pathname === "/api/journal") {
-    const db = new DatabaseService();
+    const db = deps.db ?? new DatabaseService();
     const entries = db.getJournalEntries();
-    db.close();
+    if (!deps.db) db.close();
     sendJson(res, 200, { entries });
     return;
   }
@@ -507,10 +514,11 @@ export async function createServer(opts: ServerOptions = {}): Promise<http.Serve
             placeOrder: async () => ({ id: "mock-order" }),
           }),
     yahoo: opts.deps?.yahoo ?? new YahooFinanceService(),
+    db: opts.deps?.db ?? new DatabaseService(),
     getFundamentals:
       opts.deps?.getFundamentals ??
       (realBroker
-        ? () => getNifty500Fundamentals()
+        ? () => getNifty500Fundamentals(false, opts.deps?.db)
         : async () => [
             {
               symbol: "RELIANCE",
