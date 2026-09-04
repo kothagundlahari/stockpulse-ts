@@ -14,6 +14,13 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.add("active");
     document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
 
+    if (btn.dataset.tab === "personalities") {
+      const pList = document.getElementById("personality-list");
+      if (!pList || !pList.querySelector(".personality")) {
+        loadPersonalities();
+      }
+    }
+
     if (btn.dataset.tab === "portfolio") {
       loadBrokerStatus();
       loadPortfolio();
@@ -50,10 +57,18 @@ document.getElementById("quote-fetch").addEventListener("click", async () => {
 // Personalities
 async function loadPersonalities() {
   const el = document.getElementById("personality-list");
-  el.innerHTML = "<p>Loading…</p>";
+  if (!el) return;
+  el.innerHTML = "<p>Loading personalities (screening NIFTY 500 universe)…</p>";
   try {
     const res = await fetch("/api/personalities");
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      throw new Error(errData?.error || `HTTP ${res.status}: Failed to load personalities`);
+    }
     const data = await res.json();
+    if (!data || !Array.isArray(data.personalities)) {
+      throw new Error("Invalid response: personalities data missing");
+    }
     el.innerHTML = data.personalities
       .map(
         (p) => `
@@ -61,7 +76,7 @@ async function loadPersonalities() {
           <h3>${p.name} <span style="color:var(--muted);font-weight:400">(${p.matches}/${data.total})</span></h3>
           <p class="desc">${p.description}</p>
           ${
-            p.stocks.length
+            p.stocks && p.stocks.length
               ? `<table><thead><tr><th>Symbol</th><th>Market Cap</th><th>PE</th><th>ROE</th><th>Sector</th></tr></thead><tbody>
                   ${p.stocks
                     .map(
@@ -76,7 +91,7 @@ async function loadPersonalities() {
       )
       .join("");
   } catch (e) {
-    el.innerHTML = `<p class="error">${e.message}</p>`;
+    el.innerHTML = `<p class="error">${e.message}</p><button class="btn" style="margin-top:0.5rem;" onclick="loadPersonalities()">Retry</button>`;
   }
 }
 
@@ -122,10 +137,15 @@ function renderTrades(trades) {
 // Journal
 async function loadJournal() {
   const el = document.getElementById("journal-list");
+  if (!el) return;
   try {
     const res = await fetch("/api/journal");
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      throw new Error(errData?.error || "Failed to load journal");
+    }
     const data = await res.json();
-    if (!data.entries.length) {
+    if (!data || !Array.isArray(data.entries) || !data.entries.length) {
       el.innerHTML = "<p>No journal entries yet.</p>";
       return;
     }
@@ -144,11 +164,16 @@ async function loadJournal() {
 document.getElementById("news-fetch").addEventListener("click", async () => {
   const symbol = document.getElementById("news-symbol").value;
   const el = document.getElementById("news-list");
+  if (!el) return;
   el.innerHTML = "<p>Loading…</p>";
   try {
     const res = await fetch(`/api/news?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      throw new Error(errData?.error || "Failed to load news");
+    }
     const data = await res.json();
-    if (!data.length) {
+    if (!Array.isArray(data) || !data.length) {
       el.innerHTML = "<p>No news found.</p>";
       return;
     }
@@ -186,13 +211,40 @@ async function loadPortfolio() {
   el.innerHTML = "<p>Loading…</p>";
   try {
     const res = await fetch("/api/portfolio");
-    if (!res.ok) throw new Error("Failed to load portfolio");
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      throw new Error(errData?.error || "Failed to load portfolio");
+    }
     const data = await res.json();
     if (!data.holdings || data.holdings.length === 0) {
       el.innerHTML = "<p>No holdings found.</p>";
       return;
     }
-    el.innerHTML = data.holdings
+
+    const totalValue = data.total ?? data.holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+    const totalPnl = data.holdings.reduce((sum, h) => sum + (h.pnl || 0), 0);
+    const totalCost = totalValue - totalPnl;
+    const totalPnlPercent = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+    const totalPnlCls = totalPnl >= 0 ? "positive" : "negative";
+
+    const summaryHtml = `
+      <div class="portfolio-summary">
+        <div class="summary-card">
+          <div class="label">Total Portfolio Value</div>
+          <div class="value">${money(totalValue)}</div>
+        </div>
+        <div class="summary-card ${totalPnlCls}">
+          <div class="label">Total Unrealized P&amp;L</div>
+          <div class="value">${totalPnl >= 0 ? "+" : ""}${money(totalPnl)} (${totalPnlPercent.toFixed(2)}%)</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Total Holdings</div>
+          <div class="value">${data.holdings.length}</div>
+        </div>
+      </div>
+    `;
+
+    const rowsHtml = data.holdings
       .map((h) => {
         const action = h.recommendation?.action ?? "HOLD";
         const recCls =
@@ -204,23 +256,64 @@ async function loadPortfolio() {
         const pnlCls = (h.pnl ?? 0) >= 0 ? "positive" : "negative";
         const pnlPercentFormatted = (h.pnlPercent != null ? Number(h.pnlPercent) : 0).toFixed(2);
         const dayCls = (h.dayChangePercent ?? 0) >= 0 ? "positive" : "negative";
+        const dayPercentFormatted = (h.dayChangePercent != null ? Number(h.dayChangePercent) : 0).toFixed(2);
         const reasons = h.recommendation?.reasons?.length
           ? h.recommendation.reasons.join(" · ")
           : "";
-        return `<div class="holding">
-        <div class="row"><strong>${h.symbol}</strong> <span class="rec badge ${recCls}">${action.replace("_", " ")}</span></div>
-        <div class="metric-grid">
-          <div class="metric"><div class="label">Qty</div><div class="value">${h.quantity}</div></div>
-          <div class="metric"><div class="label">Avg</div><div class="value">${money(h.averagePrice)}</div></div>
-          <div class="metric"><div class="label">LTP</div><div class="value">${money(h.ltp)}</div></div>
-          <div class="metric ${dayCls}"><div class="label">Day Chg</div><div class="value">${(h.dayChangePercent ?? 0) >= 0 ? "+" : ""}${h.dayChangePercent != null ? Number(h.dayChangePercent).toFixed(2) + "%" : "—"}</div></div>
-          <div class="metric ${pnlCls}"><div class="label">P&L</div><div class="value">${h.pnl >= 0 ? "+" : ""}${money(h.pnl)} (${pnlPercentFormatted}%)</div></div>
-          <div class="metric"><div class="label">Value</div><div class="value">${money(h.currentValue)}</div></div>
-        </div>
-        ${reasons ? `<details><summary class="muted">View reasons</summary><p class="desc">${reasons}</p></details>` : ""}
-      </div>`;
+
+        return `<tr>
+          <td class="symbol-col">
+            <button type="button" class="symbol-btn" data-symbol="${h.symbol}" title="Click to trade ${h.symbol}">${h.symbol}</button>
+          </td>
+          <td><span class="badge ${recCls}">${action.replace("_", " ")}</span></td>
+          <td class="num-col">${h.quantity}</td>
+          <td class="num-col">${money(h.averagePrice)}</td>
+          <td class="num-col">${money(h.ltp)}</td>
+          <td class="num-col ${dayCls}">${(h.dayChangePercent ?? 0) >= 0 ? "+" : ""}${dayPercentFormatted}%</td>
+          <td class="num-col ${pnlCls}">${h.pnl >= 0 ? "+" : ""}${money(h.pnl)} (${pnlPercentFormatted}%)</td>
+          <td class="num-col">${money(h.currentValue)}</td>
+          <td class="reasons-col">
+            ${reasons ? `<details><summary>Rationale</summary><div class="reasons-text">${reasons}</div></details>` : "—"}
+          </td>
+        </tr>`;
       })
       .join("");
+
+    el.innerHTML = `
+      ${summaryHtml}
+      <div class="table-container">
+        <table class="holdings-table">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Signal</th>
+              <th class="num-col">Qty</th>
+              <th class="num-col">Avg Price</th>
+              <th class="num-col">LTP</th>
+              <th class="num-col">Day Chg</th>
+              <th class="num-col">Total P&amp;L</th>
+              <th class="num-col">Current Value</th>
+              <th>Analysis</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    el.querySelectorAll(".symbol-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const symbol = btn.dataset.symbol;
+        const symInput = document.getElementById("trade-symbol");
+        if (symInput && symbol) {
+          symInput.value = symbol;
+          symInput.scrollIntoView({ behavior: "smooth", block: "center" });
+          symInput.focus();
+        }
+      });
+    });
   } catch (e) {
     el.innerHTML = `<p class="error">${e.message}</p>`;
   }

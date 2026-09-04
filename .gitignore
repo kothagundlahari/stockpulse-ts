@@ -26,3 +26,12 @@ omp-session-*.html
 # Editor configs
 .idea/
 .vscode/
+
+# Brainstorming visual companion scratch
+.superpowers/
+
+# Local SSL certificates
+certs/
+
+# Session exports
+session-*.md

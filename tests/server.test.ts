@@ -326,4 +326,53 @@ describe("HTTP API", () => {
       customServer.close();
     }
   });
+
+  it("GET /api/personalities returns all personalities with match counts", async () => {
+    const res = await fetch(`${base}/api/personalities`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(typeof body.total).toBe("number");
+    expect(Array.isArray(body.personalities)).toBe(true);
+    expect(body.personalities.length).toBe(8);
+    expect(body.personalities[0]).toHaveProperty("id");
+    expect(body.personalities[0]).toHaveProperty("name");
+    expect(body.personalities[0]).toHaveProperty("stocks");
+  });
+
+  it("GET /api/personalities/:id returns a single personality or 404", async () => {
+    const res = await fetch(`${base}/api/personalities/buffett`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBe("buffett");
+    expect(Array.isArray(body.stocks)).toBe(true);
+
+    const notFound = await fetch(`${base}/api/personalities/unknown-id`);
+    expect(notFound.status).toBe(404);
+  });
+
+  it("GET /api/personalities handles getFundamentals failure gracefully", async () => {
+    const failingServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        getFundamentals: async () => {
+          throw new Error("Data fetch error");
+        },
+      },
+    });
+    await new Promise<void>((resolve) => failingServer.listen(0, () => resolve()));
+    const addr = failingServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/personalities`);
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.error).toMatch(/Data fetch error/);
+      expect(Array.isArray(body.personalities)).toBe(true);
+      expect(body.personalities).toHaveLength(0);
+    } finally {
+      failingServer.close();
+    }
+  });
 });

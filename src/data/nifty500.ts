@@ -32,34 +32,45 @@ let inflight: Promise<Fundamentals[]> | null = null;
 
 export async function getNifty500Symbols(): Promise<string[]> {
   if (symbolsCache && Date.now() - symbolsCache.at < SYMBOL_TTL_MS) return symbolsCache.symbols;
-  const res = await fetch(NSE_CSV_URL, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) {
-    throw new Error(`NSE index CSV fetch failed with HTTP ${res.status}`);
+  try {
+    const res = await fetch(NSE_CSV_URL, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!res.ok) {
+      throw new Error(`NSE index CSV fetch failed with HTTP ${res.status}`);
+    }
+    const csv = await res.text();
+    const symbols = parseNifty500Csv(csv);
+    if (symbols.length < 50) {
+      throw new Error("NSE index CSV returned an unexpectedly small symbol list; rejecting it.");
+    }
+    symbolsCache = { at: Date.now(), symbols };
+    return symbols;
+  } catch (err) {
+    if (symbolsCache) return symbolsCache.symbols;
+    throw err;
   }
-  const csv = await res.text();
-  const symbols = parseNifty500Csv(csv);
-  if (symbols.length < 50) {
-    throw new Error("NSE index CSV returned an unexpectedly small symbol list; rejecting it.");
-  }
-  symbolsCache = { at: Date.now(), symbols };
-  return symbols;
 }
 
 export async function getNifty500Fundamentals(force = false): Promise<Fundamentals[]> {
   if (!force && fundCache && Date.now() - fundCache.fetchedAt < CACHE_TTL_MS) return fundCache.data;
   if (inflight) return inflight;
   inflight = (async () => {
-    const symbols = await getNifty500Symbols();
-    const live = await mapWithConcurrency(symbols, CONCURRENCY, async (symbol) => {
-      try {
-        return await yahoo.getFundamentals(symbol);
-      } catch {
-        return { symbol } as Fundamentals;
-      }
-    });
-    fundCache = { fetchedAt: Date.now(), data: live };
-    inflight = null;
-    return live;
+    try {
+      const symbols = await getNifty500Symbols();
+      const live = await mapWithConcurrency(symbols, CONCURRENCY, async (symbol) => {
+        try {
+          return await yahoo.getFundamentals(symbol);
+        } catch {
+          return { symbol } as Fundamentals;
+        }
+      });
+      fundCache = { fetchedAt: Date.now(), data: live };
+      return live;
+    } catch (err) {
+      if (fundCache) return fundCache.data;
+      throw err;
+    } finally {
+      inflight = null;
+    }
   })();
   return inflight;
 }

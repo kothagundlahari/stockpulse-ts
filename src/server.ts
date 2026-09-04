@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
+import https from "node:https";
 import path from "node:path";
 import { z } from "zod";
 import { PERSONALITIES } from "./data/nifty50.js";
@@ -93,15 +94,23 @@ export async function router(
 
   // --- JSON API ---
   if (pathname === "/api/personalities") {
-    const universe = await deps.getFundamentals();
-    const result = PERSONALITIES.map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      matches: universe.filter(p.filter).length,
-      stocks: universe.filter(p.filter),
-    }));
-    sendJson(res, 200, { total: universe.length, personalities: result });
+    try {
+      const universe = await deps.getFundamentals();
+      const result = PERSONALITIES.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        matches: universe.filter(p.filter).length,
+        stocks: universe.filter(p.filter),
+      }));
+      sendJson(res, 200, { total: universe.length, personalities: result });
+    } catch (e) {
+      sendJson(res, 500, {
+        error: e instanceof Error ? e.message : "Failed to load personalities",
+        personalities: [],
+        total: 0,
+      });
+    }
     return;
   }
 
@@ -392,6 +401,7 @@ export interface ServerOptions {
   port?: number;
   realBroker?: boolean;
   deps?: Partial<ServerDeps>;
+  https?: boolean;
 }
 
 export async function createServer(opts: ServerOptions = {}): Promise<http.Server> {
@@ -438,7 +448,24 @@ export async function createServer(opts: ServerOptions = {}): Promise<http.Serve
       }),
   };
 
-  return http.createServer(wrap((req, res) => router(req, res, deps)));
+  const handler = wrap((req, res) => router(req, res, deps));
+
+  const certPath = path.join(process.cwd(), "certs", "localhost.pem");
+  const keyPath = path.join(process.cwd(), "certs", "localhost-key.pem");
+  const shouldHttps =
+    opts.https ??
+    (process.env.NODE_ENV !== "test" && fs.existsSync(certPath) && fs.existsSync(keyPath));
+
+  if (shouldHttps && fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    return https.createServer(
+      {
+        cert: fs.readFileSync(certPath),
+        key: fs.readFileSync(keyPath),
+      },
+      handler,
+    );
+  }
+  return http.createServer(handler);
 }
 
 const isMain =
@@ -447,8 +474,10 @@ const isMain =
 
 if (isMain) {
   const s = await createServer({ port: PORT, realBroker: true });
+  const isHttps = s instanceof https.Server;
   s.listen(PORT, () => {
-    const url = `http://localhost:${PORT}`;
+    const proto = isHttps ? "https" : "http";
+    const url = `${proto}://localhost:${PORT}`;
     console.log(`StockPulse dashboard: ${url}`);
     if (process.env.OPEN_BROWSER === "1") {
       const cmd =
