@@ -56,6 +56,14 @@ const FIXTURE: Fundamentals[] = [
     operatingMargin: 58,
   },
   { symbol: "GROWTH", peRatio: 30, roe: 25, revenueGrowth: 20, operatingMargin: 20 },
+  {
+    symbol: "ASIANPAINT",
+    peRatio: 50,
+    pbRatio: 16,
+    dividendYield: 0.9,
+    roe: 28,
+  },
+  { symbol: "LYCHCASE", peRatio: 20, revenueGrowth: 15, netProfit: 500 },
 ];
 
 describe("Personality screeners", () => {
@@ -93,7 +101,7 @@ describe("Personality screeners", () => {
   it("every personality returns a non-trivial subset of a realistic universe", () => {
     for (const p of PERSONALITIES) {
       const count = FIXTURE.filter(p.filter).length;
-      expect(count).toBeGreaterThanOrEqual(0);
+      expect(count).toBeGreaterThanOrEqual(1);
       expect(count).toBeLessThanOrEqual(FIXTURE.length);
     }
   });

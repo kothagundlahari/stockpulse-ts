@@ -49,6 +49,9 @@ let inflight: Promise<Fundamentals[]> | null = null;
 export async function getNifty500Symbols(): Promise<string[]> {
   if (symbolsCache && Date.now() - symbolsCache.at < SYMBOL_TTL_MS) return symbolsCache.symbols;
   const res = await fetch(NSE_CSV_URL, { headers: { "User-Agent": "Mozilla/5.0" } });
+  if (!res.ok) {
+    throw new Error(`NSE index CSV request failed with status ${res.status}`);
+  }
   const csv = await res.text();
   const symbols = parseNifty500Csv(csv);
   if (symbols.length < 50) {
