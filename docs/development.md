@@ -27,6 +27,8 @@ This guarantees the engines and services are correct by construction and safe to
 - `tests/types.test.ts` — Zod schema validation
 - `tests/screener.test.ts` — screener engine
 - `tests/backtest.test.ts` — backtesting engine
+- `tests/personalities.test.ts` — personality filter assertions
+- `tests/holding-recommendation.test.ts` — holding recommendation engine
 - `tests/database.test.ts` — SQLite persistence (uses a temp DB)
 - `tests/yahoo-finance.test.ts` — API client (mocked axios)
 
@@ -41,9 +43,10 @@ npx vitest run tests/screener.test.ts
 - **Engines** (`src/engines/`) — pure logic, no I/O, no dependencies
 - **Services** (`src/services/`) — I/O: HTTP, DB, external systems
 - **Types** (`src/types/`) — shared Zod schemas
-- **CLI** (`src/cli/`) — command wiring and presentation only
+- **Server** (`src/server.ts`) — HTTP routing and JSON API
+- **Dashboard** (`public/`) — plain HTML/CSS/JS
 
-Keep business logic in engines, not in the CLI. If a behavior is testable without a network or database, it belongs in an engine.
+Keep business logic in engines, not in the server or dashboard. If a behavior is testable without a network or database, it belongs in an engine.
 
 ## Code standards
 
@@ -56,26 +59,28 @@ Keep business logic in engines, not in the CLI. If a behavior is testable withou
 ## Verification commands
 
 ```bash
+pnpm check         # biome lint/format + tsc --noEmit (fastest full check)
 pnpm build         # tsc compile (catches type errors)
-pnpm test          # full suite
-node dist/cli/index.js --help   # smoke-test the CLI after build
+pnpm test          # full test suite
 ```
 
-Run all three after making changes.
+Run `pnpm check` after making changes — it catches both lint and type errors without emitting output.
 
-## Adding a new command
+## Adding a new feature
 
 1. Implement logic as an engine or a method on a service
 2. Write/update tests
-3. Register the command in `src/cli/index.ts` with `commander`
-4. Add a command to the CLI `--help` and document it in `docs/`
+3. Add the server endpoint in `src/server.ts`
+4. Add the UI tab/panel in `public/`
+5. Document it in `docs/`
 
 ## Environment variables
 
 | Variable | Used for |
 |---|---|
-| `FYERS_APP_ID` | FYERS OAuth app ID |
-| `FYERS_SECRET` | FYERS app secret |
+| `UPSTOX_API_KEY` | Upstox OAuth app key |
+| `UPSTOX_API_SECRET` | Upstox OAuth app secret |
+| `UPSTOX_REDIRECT_URI` | OAuth redirect URI (default: `http://localhost:8787/callback`) |
 
 Load them from a `.env` (gitignored) or export them in your shell. Never commit them.
 
