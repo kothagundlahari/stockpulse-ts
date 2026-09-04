@@ -85,6 +85,38 @@ export function wrap(
   };
 }
 
+function isAuthExpiredError(e: unknown): boolean {
+  if (typeof e === "object" && e !== null) {
+    const status = (e as { response?: { status?: number } }).response?.status;
+    if (status === 401 || status === 403) return true;
+    const message = (e as { message?: string }).message;
+    if (
+      typeof message === "string" &&
+      (message.includes("401") || /not authenticated/i.test(message))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function handleBrokerError(e: unknown, res: http.ServerResponse, deps: ServerDeps): void {
+  if (isAuthExpiredError(e)) {
+    if (deps.disconnectUpstox) {
+      deps.disconnectUpstox();
+    } else {
+      disconnectUpstox();
+    }
+    deps.upstox = getUpstoxClient();
+    sendJson(res, 401, {
+      error: "Upstox session expired. Please re-authorize.",
+      expired: true,
+    });
+    return;
+  }
+  sendJson(res, 500, { error: e instanceof Error ? e.message : "Broker request failed" });
+}
+
 export async function router(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -283,7 +315,7 @@ export async function router(
       );
       sendJson(res, 200, { total: totalValue, holdings: enriched });
     } catch (e) {
-      sendJson(res, 500, { error: e instanceof Error ? e.message : "Failed to fetch portfolio" });
+      handleBrokerError(e, res, deps);
     }
     return;
   }
@@ -293,7 +325,7 @@ export async function router(
       const orders = await deps.upstox.getOrders();
       sendJson(res, 200, { orders });
     } catch (e) {
-      sendJson(res, 500, { error: e instanceof Error ? e.message : "Failed to fetch orders" });
+      handleBrokerError(e, res, deps);
     }
     return;
   }
@@ -345,7 +377,7 @@ export async function router(
       });
       sendJson(res, 200, { id: result.id });
     } catch (e) {
-      sendJson(res, 500, { error: e instanceof Error ? e.message : "Order placement failed" });
+      handleBrokerError(e, res, deps);
     }
     return;
   }

@@ -465,6 +465,160 @@ describe("HTTP API", () => {
     }
   });
 
+  it("GET /api/portfolio returns 401 and clears session when Upstox returns 401", async () => {
+    let disconnected = false;
+    const authError = Object.assign(new Error("Request failed with status code 401"), {
+      response: { status: 401 },
+    });
+    const authenticatedClient: Broker = {
+      name: "upstox",
+      isAuthenticated: true,
+      getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
+      authenticate: async () => {},
+      getHoldings: async () => {
+        throw authError;
+      },
+      getPositions: async () => [],
+      getOrders: async () => [],
+      placeOrder: async () => ({ id: "mock-order" }),
+    };
+
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        upstox: authenticatedClient,
+        disconnectUpstox: () => {
+          disconnected = true;
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/portfolio`);
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.expired).toBe(true);
+      expect(body.error).toBe("Upstox session expired. Please re-authorize.");
+      expect(disconnected).toBe(true);
+
+      const brokerRes = await fetch(`${customBase}/api/broker`);
+      const brokerBody = await brokerRes.json();
+      expect(brokerBody.authenticated).toBe(false);
+    } finally {
+      customServer.close();
+    }
+  });
+
+  it("GET /api/orders returns 401 and clears session when Upstox returns 401", async () => {
+    let disconnected = false;
+    const authError = Object.assign(new Error("Request failed with status code 401"), {
+      response: { status: 401 },
+    });
+    const authenticatedClient: Broker = {
+      name: "upstox",
+      isAuthenticated: true,
+      getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
+      authenticate: async () => {},
+      getHoldings: async () => [],
+      getPositions: async () => [],
+      getOrders: async () => {
+        throw authError;
+      },
+      placeOrder: async () => ({ id: "mock-order" }),
+    };
+
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        upstox: authenticatedClient,
+        disconnectUpstox: () => {
+          disconnected = true;
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/orders`);
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.expired).toBe(true);
+      expect(body.error).toBe("Upstox session expired. Please re-authorize.");
+      expect(disconnected).toBe(true);
+
+      const brokerRes = await fetch(`${customBase}/api/broker`);
+      const brokerBody = await brokerRes.json();
+      expect(brokerBody.authenticated).toBe(false);
+    } finally {
+      customServer.close();
+    }
+  });
+
+  it("POST /api/trade returns 401 and clears session when Upstox returns 401", async () => {
+    let disconnected = false;
+    const authError = Object.assign(new Error("Request failed with status code 401"), {
+      response: { status: 401 },
+    });
+    const authenticatedClient: Broker = {
+      name: "upstox",
+      isAuthenticated: true,
+      getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
+      authenticate: async () => {},
+      getHoldings: async () => [],
+      getPositions: async () => [],
+      getOrders: async () => [],
+      placeOrder: async () => {
+        throw authError;
+      },
+    };
+
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        upstox: authenticatedClient,
+        disconnectUpstox: () => {
+          disconnected = true;
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/trade`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: "TCS",
+          side: "BUY",
+          qty: 1,
+          type: "MARKET",
+          confirm: true,
+        }),
+      });
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.expired).toBe(true);
+      expect(body.error).toBe("Upstox session expired. Please re-authorize.");
+      expect(disconnected).toBe(true);
+
+      const brokerRes = await fetch(`${customBase}/api/broker`);
+      const brokerBody = await brokerRes.json();
+      expect(brokerBody.authenticated).toBe(false);
+    } finally {
+      customServer.close();
+    }
+  });
+
   it("GET /api/personalities returns all personalities with match counts", async () => {
     const res = await fetch(`${base}/api/personalities`);
     expect(res.status).toBe(200);
