@@ -16,7 +16,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 
     if (btn.dataset.tab === "personalities") {
       const pList = document.getElementById("personality-list");
-      if (!pList || !pList.querySelector(".personality")) {
+      if (!pList || !pList.querySelector(".personality-layout")) {
         loadPersonalities();
       }
     }
@@ -54,7 +54,105 @@ document.getElementById("quote-fetch").addEventListener("click", async () => {
   }
 });
 
-// Personalities
+// Personalities State & Master-Detail Renderer
+const personalitiesState = {
+  data: null,
+  activeId: null,
+};
+
+function renderPersonalities() {
+  const el = document.getElementById("personality-list");
+  if (!el || !personalitiesState.data) return;
+
+  const { personalities, total } = personalitiesState.data;
+  if (!personalities || !personalities.length) {
+    el.innerHTML = "<p class='error'>No investor personalities available.</p>";
+    return;
+  }
+
+  if (!personalitiesState.activeId || !personalities.some((p) => p.id === personalitiesState.activeId)) {
+    personalitiesState.activeId = personalities[0].id;
+  }
+
+  const active = personalities.find((p) => p.id === personalitiesState.activeId) || personalities[0];
+
+  el.innerHTML = `
+    <div class="personality-layout">
+      <div class="personality-sidebar">
+        <div class="personality-sidebar-header">
+          <span>Investment Strategies</span>
+          <span class="personality-badge">${personalities.length}</span>
+        </div>
+        <div class="personality-sidebar-list">
+          ${personalities
+            .map(
+              (p) => `
+            <button class="personality-item ${p.id === active.id ? "active" : ""}" data-id="${p.id}" type="button">
+              <div class="personality-item-info">
+                <span class="personality-item-name">${p.name}</span>
+                <span class="personality-item-desc">${p.description}</span>
+              </div>
+              <span class="personality-count">${p.matches}</span>
+            </button>`,
+            )
+            .join("")}
+        </div>
+      </div>
+      <div class="personality-detail-pane card">
+        <div class="personality-detail-header">
+          <div>
+            <h3>${active.name}</h3>
+            <p class="desc">${active.description}</p>
+          </div>
+          <div class="personality-match-pill">
+            <strong>${active.matches}</strong> of ${total} stocks match
+          </div>
+        </div>
+        ${
+          active.stocks && active.stocks.length
+            ? `<div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th>Market Cap</th>
+                      <th>PE</th>
+                      <th>ROE</th>
+                      <th>Sector</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${active.stocks
+                      .map(
+                        (s) =>
+                          `<tr>
+                            <td><strong>${s.symbol}</strong></td>
+                            <td>${formatMC(s.marketCap)}</td>
+                            <td>${num(s.peRatio)}</td>
+                            <td class="${s.roe && s.roe >= 15 ? "positive" : ""}">${s.roe != null ? s.roe.toFixed(1) + "%" : "—"}</td>
+                            <td>${s.sector ?? "—"}</td>
+                          </tr>`,
+                      )
+                      .join("")}
+                  </tbody>
+                </table>
+              </div>`
+            : "<p class='error' style='margin-top:1rem;'>No stocks in the NIFTY 500 currently meet this criteria.</p>"
+        }
+      </div>
+    </div>`;
+
+  el.querySelectorAll(".personality-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.id;
+      if (id && id !== personalitiesState.activeId) {
+        personalitiesState.activeId = id;
+        renderPersonalities();
+      }
+    });
+  });
+}
+
 async function loadPersonalities() {
   const el = document.getElementById("personality-list");
   if (!el) return;
@@ -69,27 +167,8 @@ async function loadPersonalities() {
     if (!data || !Array.isArray(data.personalities)) {
       throw new Error("Invalid response: personalities data missing");
     }
-    el.innerHTML = data.personalities
-      .map(
-        (p) => `
-        <div class="personality">
-          <h3>${p.name} <span style="color:var(--muted);font-weight:400">(${p.matches}/${data.total})</span></h3>
-          <p class="desc">${p.description}</p>
-          ${
-            p.stocks && p.stocks.length
-              ? `<table><thead><tr><th>Symbol</th><th>Market Cap</th><th>PE</th><th>ROE</th><th>Sector</th></tr></thead><tbody>
-                  ${p.stocks
-                    .map(
-                      (s) =>
-                        `<tr><td><strong>${s.symbol}</strong></td><td>${formatMC(s.marketCap)}</td><td>${num(s.peRatio)}</td><td>${num(s.roe)}</td><td>${s.sector ?? ""}</td></tr>`,
-                    )
-                    .join("")}
-                </tbody></table>`
-              : "<p class='error'>No matches</p>"
-          }
-        </div>`,
-      )
-      .join("");
+    personalitiesState.data = data;
+    renderPersonalities();
   } catch (e) {
     el.innerHTML = `<p class="error">${e.message}</p><button class="btn" style="margin-top:0.5rem;" onclick="loadPersonalities()">Retry</button>`;
   }
