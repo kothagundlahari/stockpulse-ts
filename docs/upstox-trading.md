@@ -22,35 +22,28 @@ Set these in a `.env` file (gitignored) or export them in your shell. Never comm
 
 ## OAuth 2.0 authorization-code flow
 
-StockPulse uses the standard OAuth 2.0 authorization-code flow implemented in `src/services/upstox.ts`.
+StockPulse uses the standard OAuth 2.0 authorization-code flow implemented in `src/services/upstox.ts` and automated via the server's `/callback` handler.
 
-### Step 1 — Get the auth URL
+### Step 1 — Click "Authorize" in the dashboard
 
-The server exposes the auth URL via `GET /api/broker`. The dashboard shows a "Connect to Upstox" button that opens this URL.
+The server exposes the auth URL via `GET /api/broker`. The dashboard shows a "Connect to Upstox" button (or "Re-authorize" if disconnected) that directs the user to Upstox's login page.
 
-### Step 2 — Authorize in the browser
+### Step 2 — Log in and approve on Upstox
 
-Open the auth URL, log in to Upstox, and approve access. You will be redirected to your redirect URI with an `code` query parameter.
+Log in to your Upstox account and approve access permissions for the application.
 
-### Step 3 — Exchange the code
+### Step 3 — Automatic redirect & token exchange
 
-Send the auth code to the dashboard:
-
-```
-POST /api/broker/auth
-Content-Type: application/json
-
-{ "code": "<AUTH_CODE>" }
-```
-
-The server exchanges the code for an access token and persists it in the local SQLite database (`broker_tokens` table). The token is then used for all subsequent API calls.
+Upstox automatically redirects back to `http://localhost:8787/callback?code=...`. StockPulse's server handles this route by exchanging the authorization code for an access token, persisting it in the local SQLite database (`broker_tokens` table), and redirecting the browser back to `/?broker=connected` with a success notification. Manual code pasting is no longer required. (The manual endpoint `POST /api/broker/auth` remains available if needed.)
 
 ## Server endpoints
 
 | Endpoint | Method | Description |
 |---|---|---|
+| `GET /callback` | GET | OAuth 2.0 redirect handler from Upstox (exchanges code, saves token, redirects to dashboard) |
 | `GET /api/broker` | GET | Returns Upstox auth status and the auth URL |
-| `POST /api/broker/auth` | POST | Completes OAuth — accepts `{ code }`, stores the access token |
+| `POST /api/broker/auth` | POST | Completes OAuth manually — accepts `{ code }`, stores the access token |
+| `POST /api/broker/disconnect` | POST | Clears stored broker token and resets session |
 | `GET /api/portfolio` | GET | Holdings merged with live Yahoo quotes and per-holding recommendations |
 | `GET /api/orders` | GET | Recent orders from Upstox (trade history) |
 | `POST /api/trade` | POST | Place a real order (requires `confirm: true`) |
@@ -92,6 +85,13 @@ Access tokens are stored in the `broker_tokens` table of `./data/stockpulse.db` 
 - Standard Upstox access tokens expire daily.
 - The **Analytics Token** (available with a registered static IP) avoids daily re-auth for market data and read-only portfolio access.
 - Tokens are never logged, printed, or committed.
+
+## Token Expiry & Session Management
+
+- **Daily Token Expiration:** Standard Upstox access tokens expire daily (typically at 3:30 AM IST).
+- **Automated Session Cleanup on 401:** When a token expires or is invalidated, upstream Upstox API requests return HTTP `401 Unauthorized`. StockPulse automatically catches 401 errors from broker calls, deletes the stored token from SQLite (`broker_tokens`), resets the in-memory broker instance, and returns a 401 status to the dashboard.
+- **UI Re-authorization:** When the dashboard receives a 401 from any broker endpoint (or during initial status polling), it marks the connection as disconnected and prompts the user with a "Re-authorize" button to re-authenticate with one click.
+- **Manual Disconnect:** Users can also click "Disconnect" in the UI at any time (or call `POST /api/broker/disconnect`) to clear stored credentials and reset the session.
 
 ## Security notes
 

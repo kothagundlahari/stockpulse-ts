@@ -62,7 +62,9 @@ The server exposes a JSON API alongside the dashboard (all under `http://localho
 - `GET /api/portfolio` — live portfolio from the broker
 - `GET /api/orders` — recent orders from the broker
 - `GET /api/ai?symbol=&fundamentals=` — optional local AI analysis
-- `GET /api/broker` / `POST /api/broker/auth` — Upstox auth state + OAuth callback
+- `GET /callback` — automated Upstox OAuth 2.0 redirect handler
+- `GET /api/broker` / `POST /api/broker/auth` — Upstox auth state + manual OAuth callback
+- `POST /api/broker/disconnect` — disconnect broker session and clear stored token
 - `POST /api/trade` — place a trade through the broker
 
 ## Documentation
