@@ -327,6 +327,144 @@ describe("HTTP API", () => {
     }
   });
 
+  it("GET /callback with code connects upstox and redirects to /?broker=connected", async () => {
+    let connectedCode = "";
+    const authenticatedClient: Broker = {
+      name: "upstox",
+      isAuthenticated: true,
+      getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
+      authenticate: async () => {},
+      getHoldings: async () => [],
+      getPositions: async () => [],
+      getOrders: async () => [],
+      placeOrder: async () => ({ id: "mock-order" }),
+    };
+
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        connectUpstox: async (code: string) => {
+          connectedCode = code;
+          return authenticatedClient;
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/callback?code=test-auth-code`, {
+        redirect: "manual",
+      });
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/?broker=connected");
+      expect(connectedCode).toBe("test-auth-code");
+
+      const brokerRes = await fetch(`${customBase}/api/broker`);
+      const brokerBody = await brokerRes.json();
+      expect(brokerBody.authenticated).toBe(true);
+    } finally {
+      customServer.close();
+    }
+  });
+
+  it("GET /callback with error redirects to /?broker=error", async () => {
+    const res = await fetch(`${base}/callback?error=access_denied`, {
+      redirect: "manual",
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      `/?broker=error&message=${encodeURIComponent("access_denied")}`,
+    );
+  });
+
+  it("GET /callback without code redirects to /?broker=error", async () => {
+    const res = await fetch(`${base}/callback`, {
+      redirect: "manual",
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      `/?broker=error&message=${encodeURIComponent("Missing authorization code")}`,
+    );
+  });
+
+  it("GET /callback redirects to /?broker=error when connectUpstox fails", async () => {
+    const failingServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        connectUpstox: async () => {
+          throw new Error("Token exchange failed");
+        },
+      },
+    });
+    await new Promise<void>((resolve) => failingServer.listen(0, () => resolve()));
+    const addr = failingServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/callback?code=bad-code`, {
+        redirect: "manual",
+      });
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe(
+        `/?broker=error&message=${encodeURIComponent("Token exchange failed")}`,
+      );
+    } finally {
+      failingServer.close();
+    }
+  });
+
+  it("POST /api/broker/disconnect clears broker auth", async () => {
+    let disconnected = false;
+    const authenticatedClient: Broker = {
+      name: "upstox",
+      isAuthenticated: true,
+      getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
+      authenticate: async () => {},
+      getHoldings: async () => [],
+      getPositions: async () => [],
+      getOrders: async () => [],
+      placeOrder: async () => ({ id: "mock-order" }),
+    };
+
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        upstox: authenticatedClient,
+        disconnectUpstox: () => {
+          disconnected = true;
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const beforeRes = await fetch(`${customBase}/api/broker`);
+      const beforeBody = await beforeRes.json();
+      expect(beforeBody.authenticated).toBe(true);
+
+      const disRes = await fetch(`${customBase}/api/broker/disconnect`, {
+        method: "POST",
+      });
+      expect(disRes.status).toBe(200);
+      const disBody = await disRes.json();
+      expect(disBody.ok).toBe(true);
+      expect(disconnected).toBe(true);
+
+      const afterRes = await fetch(`${customBase}/api/broker`);
+      const afterBody = await afterRes.json();
+      expect(afterBody.authenticated).toBe(false);
+    } finally {
+      customServer.close();
+    }
+  });
+
   it("GET /api/personalities returns all personalities with match counts", async () => {
     const res = await fetch(`${base}/api/personalities`);
     expect(res.status).toBe(200);

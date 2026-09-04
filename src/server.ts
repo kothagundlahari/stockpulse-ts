@@ -9,7 +9,7 @@ import { getNifty500Fundamentals } from "./data/nifty500.js";
 import { BacktestEngine, smaCrossover } from "./engines/backtest.js";
 import { recommendHolding, smaFromDaily } from "./engines/holding-recommendation.js";
 import { ScreenerEngine } from "./engines/screener.js";
-import { connectUpstox, getUpstoxClient } from "./services/broker.js";
+import { connectUpstox, disconnectUpstox, getUpstoxClient } from "./services/broker.js";
 import type { Broker } from "./services/broker-types.js";
 import { DatabaseService } from "./services/database.js";
 import { fetchStockNews } from "./services/news.js";
@@ -47,6 +47,7 @@ export interface ServerDeps {
   getFundamentals: () => Promise<Fundamentals[]>;
   ollama?: OllamaService;
   connectUpstox?: (code: string) => Promise<Broker>;
+  disconnectUpstox?: () => void;
 }
 
 /** Minimal JSON helper. */
@@ -177,6 +178,47 @@ export async function router(
     return;
   }
 
+  // --- OAuth callback ---
+  if (pathname === "/callback") {
+    const error = searchParams.get("error");
+    if (error) {
+      res.writeHead(302, {
+        Location: `/?broker=error&message=${encodeURIComponent(error)}`,
+      });
+      res.end();
+      return;
+    }
+
+    const code = searchParams.get("code");
+    if (!code) {
+      res.writeHead(302, {
+        Location: `/?broker=error&message=${encodeURIComponent("Missing authorization code")}`,
+      });
+      res.end();
+      return;
+    }
+
+    try {
+      const client = deps.connectUpstox
+        ? await deps.connectUpstox(code)
+        : await (async () => {
+            await connectUpstox(code);
+            return getUpstoxClient();
+          })();
+      deps.upstox = client;
+      res.writeHead(302, { Location: "/?broker=connected" });
+      res.end();
+      return;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Authentication failed";
+      res.writeHead(302, {
+        Location: `/?broker=error&message=${encodeURIComponent(msg)}`,
+      });
+      res.end();
+      return;
+    }
+  }
+
   if (pathname === "/api/broker") {
     sendJson(res, 200, {
       authenticated: deps.upstox.isAuthenticated,
@@ -204,6 +246,17 @@ export async function router(
     } catch (e) {
       sendJson(res, 500, { error: e instanceof Error ? e.message : "Authentication failed" });
     }
+    return;
+  }
+
+  if (pathname === "/api/broker/disconnect" && req.method === "POST") {
+    if (deps.disconnectUpstox) {
+      deps.disconnectUpstox();
+    } else {
+      disconnectUpstox();
+    }
+    deps.upstox = getUpstoxClient();
+    sendJson(res, 200, { ok: true });
     return;
   }
 
@@ -446,6 +499,7 @@ export async function createServer(opts: ServerOptions = {}): Promise<http.Serve
         await connectUpstox(code);
         return getUpstoxClient();
       }),
+    disconnectUpstox: opts.deps?.disconnectUpstox ?? (() => disconnectUpstox()),
   };
 
   const handler = wrap((req, res) => router(req, res, deps));
