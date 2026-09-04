@@ -1,8 +1,9 @@
 const money = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
 const formatMC = (n) => {
+  if (n == null || Number.isNaN(n)) return "—";
   if (n >= 100000) return `${(n / 100000).toFixed(1)}L Cr`;
   if (n >= 1000) return `${(n / 1000).toFixed(0)}K Cr`;
-  return `${n.toFixed(0)} Cr`;
+  return `${Number(n).toFixed(0)} Cr`;
 };
 const num = (n) => (n == null || Number.isNaN(n) ? "—" : `${n}`);
 
@@ -58,7 +59,74 @@ document.getElementById("quote-fetch").addEventListener("click", async () => {
 const personalitiesState = {
   data: null,
   activeId: null,
+  loading: false,
 };
+
+function renderPersonalityDetail(active, total) {
+  const detailPane = document.getElementById("personality-detail-pane");
+  if (!detailPane) return;
+
+  detailPane.innerHTML = `
+    <div class="personality-detail-header">
+      <div>
+        <h3>${active.name}</h3>
+        <p class="desc">${active.description}</p>
+      </div>
+      <div class="personality-match-pill">
+        <strong>${active.matches}</strong> of ${total} stocks match
+      </div>
+    </div>
+    ${
+      active.stocks && active.stocks.length
+        ? `<div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Market Cap</th>
+                  <th>PE</th>
+                  <th>ROE</th>
+                  <th>Sector</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${active.stocks
+                  .map(
+                    (s) =>
+                      `<tr>
+                        <td><strong>${s.symbol}</strong></td>
+                        <td>${formatMC(s.marketCap)}</td>
+                        <td>${num(s.peRatio)}</td>
+                        <td class="${typeof s.roe === "number" && s.roe >= 15 ? "positive" : ""}">${typeof s.roe === "number" && !Number.isNaN(s.roe) ? `${s.roe.toFixed(1)}%` : "—"}</td>
+                        <td>${s.sector ?? "—"}</td>
+                      </tr>`,
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>`
+        : "<p class='muted' style='margin-top:1rem;'>No stocks in the NIFTY 500 currently meet this criteria.</p>"
+    }`;
+}
+
+function selectPersonality(id) {
+  if (!personalitiesState.data) return;
+  const { personalities, total } = personalitiesState.data;
+  const active = personalities.find((p) => p.id === id) || personalities[0];
+  personalitiesState.activeId = active.id;
+
+  // Toggle active class and aria-selected on buttons without re-rendering sidebar
+  const sidebar = document.getElementById("personality-sidebar-list");
+  if (sidebar) {
+    sidebar.querySelectorAll(".personality-item").forEach((btn) => {
+      const isSelected = btn.dataset.id === active.id;
+      btn.classList.toggle("active", isSelected);
+      btn.setAttribute("aria-selected", isSelected ? "true" : "false");
+    });
+  }
+
+  renderPersonalityDetail(active, total);
+}
 
 function renderPersonalities() {
   const el = document.getElementById("personality-list");
@@ -83,11 +151,11 @@ function renderPersonalities() {
           <span>Investment Strategies</span>
           <span class="personality-badge">${personalities.length}</span>
         </div>
-        <div class="personality-sidebar-list">
+        <div id="personality-sidebar-list" class="personality-sidebar-list" role="tablist" aria-label="Investor Personalities">
           ${personalities
             .map(
               (p) => `
-            <button class="personality-item ${p.id === active.id ? "active" : ""}" data-id="${p.id}" type="button">
+            <button class="personality-item ${p.id === active.id ? "active" : ""}" data-id="${p.id}" type="button" role="tab" aria-selected="${p.id === active.id ? "true" : "false"}">
               <div class="personality-item-info">
                 <span class="personality-item-name">${p.name}</span>
                 <span class="personality-item-desc">${p.description}</span>
@@ -98,56 +166,16 @@ function renderPersonalities() {
             .join("")}
         </div>
       </div>
-      <div class="personality-detail-pane card">
-        <div class="personality-detail-header">
-          <div>
-            <h3>${active.name}</h3>
-            <p class="desc">${active.description}</p>
-          </div>
-          <div class="personality-match-pill">
-            <strong>${active.matches}</strong> of ${total} stocks match
-          </div>
-        </div>
-        ${
-          active.stocks && active.stocks.length
-            ? `<div class="table-responsive">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Symbol</th>
-                      <th>Market Cap</th>
-                      <th>PE</th>
-                      <th>ROE</th>
-                      <th>Sector</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${active.stocks
-                      .map(
-                        (s) =>
-                          `<tr>
-                            <td><strong>${s.symbol}</strong></td>
-                            <td>${formatMC(s.marketCap)}</td>
-                            <td>${num(s.peRatio)}</td>
-                            <td class="${s.roe && s.roe >= 15 ? "positive" : ""}">${s.roe != null ? s.roe.toFixed(1) + "%" : "—"}</td>
-                            <td>${s.sector ?? "—"}</td>
-                          </tr>`,
-                      )
-                      .join("")}
-                  </tbody>
-                </table>
-              </div>`
-            : "<p class='error' style='margin-top:1rem;'>No stocks in the NIFTY 500 currently meet this criteria.</p>"
-        }
-      </div>
+      <div id="personality-detail-pane" class="personality-detail-pane card" role="tabpanel"></div>
     </div>`;
+
+  renderPersonalityDetail(active, total);
 
   el.querySelectorAll(".personality-item").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.id;
       if (id && id !== personalitiesState.activeId) {
-        personalitiesState.activeId = id;
-        renderPersonalities();
+        selectPersonality(id);
       }
     });
   });
@@ -156,7 +184,14 @@ function renderPersonalities() {
 async function loadPersonalities() {
   const el = document.getElementById("personality-list");
   if (!el) return;
-  el.innerHTML = "<p>Loading personalities (screening NIFTY 500 universe)…</p>";
+  if (personalitiesState.data) {
+    renderPersonalities();
+    return;
+  }
+  if (personalitiesState.loading) return;
+
+  personalitiesState.loading = true;
+  el.innerHTML = "<p class='hint'>Loading personalities (screening NIFTY 500 universe)…</p>";
   try {
     const res = await fetch("/api/personalities");
     if (!res.ok) {
@@ -171,6 +206,8 @@ async function loadPersonalities() {
     renderPersonalities();
   } catch (e) {
     el.innerHTML = `<p class="error">${e.message}</p><button class="btn" style="margin-top:0.5rem;" onclick="loadPersonalities()">Retry</button>`;
+  } finally {
+    personalitiesState.loading = false;
   }
 }
 

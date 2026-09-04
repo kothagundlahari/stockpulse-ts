@@ -170,7 +170,6 @@ select {
   gap: 0.75rem;
   padding: 0.85rem 1rem;
   border: none;
-  border-bottom: 1px solid var(--border);
   background: transparent;
   color: var(--text);
   cursor: pointer;
@@ -179,8 +178,8 @@ select {
   width: 100%;
 }
 
-.personality-item:last-child {
-  border-bottom: none;
+.personality-item:not(:last-child) {
+  border-bottom: 1px solid var(--border);
 }
 
 .personality-item:hover {
@@ -231,7 +230,7 @@ select {
 
 .personality-item.active .personality-count {
   background: var(--accent);
-  color: #0f172a;
+  color: var(--bg);
 }
 
 .personality-detail-pane {
