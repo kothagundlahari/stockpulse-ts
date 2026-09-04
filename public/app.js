@@ -55,6 +55,31 @@ document.getElementById("quote-fetch").addEventListener("click", async () => {
   }
 });
 
+function navigateToTrade(symbol, side = "BUY") {
+  const portfolioTabBtn = document.querySelector('.tab-btn[data-tab="portfolio"]');
+  if (portfolioTabBtn) {
+    portfolioTabBtn.click();
+  }
+
+  const symInput = document.getElementById("trade-symbol");
+  if (symInput && symbol) {
+    symInput.value = symbol;
+    symInput.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  const sideSelect = document.getElementById("trade-side");
+  if (sideSelect) {
+    sideSelect.value = side;
+  }
+
+  const qtyInput = document.getElementById("trade-qty");
+  if (qtyInput) {
+    setTimeout(() => {
+      qtyInput.focus();
+    }, 100);
+  }
+}
+
 // Personalities State & Master-Detail Renderer
 const personalitiesState = {
   data: null,
@@ -117,6 +142,15 @@ function renderPersonalityDetail(active, total) {
           </div>`
         : "<p class='muted' style='margin-top:1rem;'>No stocks in the NIFTY 500 currently meet this criteria.</p>"
     }`;
+
+  detailPane.querySelectorAll(".personality-symbol-btn, .personality-buy-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const symbol = btn.dataset.symbol;
+      if (symbol) {
+        navigateToTrade(symbol, "BUY");
+      }
+    });
+  });
 }
 
 function selectPersonality(id) {
@@ -432,11 +466,8 @@ async function loadPortfolio() {
     el.querySelectorAll(".symbol-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const symbol = btn.dataset.symbol;
-        const symInput = document.getElementById("trade-symbol");
-        if (symInput && symbol) {
-          symInput.value = symbol;
-          symInput.scrollIntoView({ behavior: "smooth", block: "center" });
-          symInput.focus();
+        if (symbol) {
+          navigateToTrade(symbol, "BUY");
         }
       });
     });
