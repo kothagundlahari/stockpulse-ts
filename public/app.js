@@ -198,7 +198,7 @@ function renderPersonalityDetail(active, total) {
                               <td>${num(s.peRatio)}</td>
                               <td class="${typeof s.roe === "number" && s.roe >= 15 ? "positive" : ""}">${typeof s.roe === "number" && !Number.isNaN(s.roe) ? `${s.roe.toFixed(1)}%` : "—"}</td>
                               <td>${typeof s.operatingMargin === "number" && !Number.isNaN(s.operatingMargin) ? `${s.operatingMargin.toFixed(1)}%` : "—"}</td>
-                              <td>${s.sector ?? "—"}</td>
+                              <td>${s.sector?.trim() || "Other"}</td>
                               <td>
                                 ${
                                   typeof s.score === "number"

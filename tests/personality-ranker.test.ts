@@ -130,4 +130,48 @@ describe("PersonalityRanker", () => {
       }
     }
   });
+
+  it("applies exact spec section 2.2 clamps and default fallbacks for updated formulas", () => {
+    const benchmark = { medianOperatingMargin: 12, medianRoe: 15 };
+
+    // lych: test fallback growth (15) and pe (25)
+    const lychScoreDefault = calculatePersonalityScore("lych", { symbol: "LYCH_DEF" }, benchmark);
+    expect(lychScoreDefault).toBe(52); // pegPts ~26.67 + roePts 15 + growthPts 9.9 = 51.57 -> 52
+
+    // graham: dividend yield clamp [0.2, 1.0] * 15
+    const grahamLowDiv = calculatePersonalityScore(
+      "graham",
+      { symbol: "GRAHAM_LOW", peRatio: 15, pbRatio: 1.5, dividendYield: 0, operatingMargin: 12 },
+      benchmark,
+    );
+    // pePts: 0, pbPts: 0, marginPts: 7.5, divPts: clamp(0/5, 0.2, 1.0)*15 = 3 -> raw = 10.5 -> 11
+    expect(grahamLowDiv).toBe(11);
+
+    // greenblatt: earnings yield clamp [0.2, 1.0] * 40
+    const greenblattHighPe = calculatePersonalityScore(
+      "greenblatt",
+      { symbol: "GB_HIGH_PE", peRatio: 100, roe: 15, debtToEquity: 0.5 },
+      benchmark,
+    );
+    // eyPts: clamp((1/100)/(1/8), 0.2, 1.0)*40 = 0.2*40 = 8, roePts: (1/2)*40 = 20, debtPts: 0 -> raw = 28
+    expect(greenblattHighPe).toBe(28);
+
+    // dividend: dividend yield clamp [0.35, 1.0] * 45
+    const divZero = calculatePersonalityScore(
+      "dividend",
+      { symbol: "DIV_ZERO", dividendYield: 0, roe: 15, peRatio: 25 },
+      benchmark,
+    );
+    // divPts: clamp(0/7, 0.35, 1.0)*45 = 15.75, roePts: 15, pePts: 0 -> raw = 30.75 -> 31
+    expect(divZero).toBe(31);
+
+    // momentum: revenue growth clamp [0.35, 1.0] * 35
+    const momentumZeroGrowth = calculatePersonalityScore(
+      "momentum",
+      { symbol: "MOM_ZERO", revenueGrowth: 0, operatingMargin: 12, roe: 15 },
+      benchmark,
+    );
+    // growthPts: clamp(0/40, 0.35, 1.0)*35 = 12.25, marginPts: 17.5, roePts: 15 -> raw = 44.75 -> 45
+    expect(momentumZeroGrowth).toBe(45);
+  });
 });

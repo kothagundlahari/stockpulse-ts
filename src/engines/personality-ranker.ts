@@ -99,12 +99,12 @@ export function calculatePersonalityScore(
     }
     case "lych": {
       // Growth at a reasonable price (GARP)
-      const growth = stock.revenueGrowth ?? (stock.netProfit ? 10 : 0);
+      const growth = Math.max(stock.revenueGrowth ?? 15, 1);
       const pe = stock.peRatio ?? 25;
-      const peg = pe / Math.max(growth, 1);
+      const peg = pe / growth;
       const pegPts = clamp(1 - (peg - 1) / 2, 0, 1) * 40;
       const roePts = (roeRatio / 2.0) * 30;
-      const growthPts = clamp(growth / 30, 0.33, 1.0) * 30;
+      const growthPts = clamp((stock.revenueGrowth ?? 10) / 30, 0.33, 1.0) * 30;
       rawScore = pegPts + roePts + growthPts;
       break;
     }
@@ -114,16 +114,14 @@ export function calculatePersonalityScore(
       const pePts = (1 - pe / 15) * 35;
       const pb = clamp(stock.pbRatio ?? 1.5, 0, 1.5);
       const pbPts = (1 - pb / 1.5) * 35;
-      const divYield = clamp(stock.dividendYield ?? 1, 0, 5);
-      const divPts = (divYield / 5) * 15;
+      const divPts = clamp((stock.dividendYield ?? 1) / 5, 0.2, 1.0) * 15;
       const marginPts = (marginRatio / 2.0) * 15;
       rawScore = pePts + pbPts + divPts + marginPts;
       break;
     }
     case "greenblatt": {
       // Magic Formula: Earnings Yield (1/PE) + Sector Return on Capital (ROE)
-      const pe = clamp(stock.peRatio ?? 20, 5, 20);
-      const eyPts = clamp(1 / pe / (1 / 8), 0.25, 1.0) * 40;
+      const eyPts = clamp(1 / (stock.peRatio ?? 20) / (1 / 8), 0.2, 1.0) * 40;
       const roePts = (roeRatio / 2.0) * 40;
       const de = clamp(stock.debtToEquity ?? 0.5, 0, 0.5);
       const debtPts = (1 - de / 0.5) * 20;
@@ -142,8 +140,7 @@ export function calculatePersonalityScore(
     }
     case "dividend": {
       // High sustainable dividend yield + quality
-      const divYield = clamp(stock.dividendYield ?? 2.5, 0, 7.0);
-      const divPts = (divYield / 7.0) * 45;
+      const divPts = clamp((stock.dividendYield ?? 2.5) / 7.0, 0.35, 1.0) * 45;
       const roePts = (roeRatio / 2.0) * 30;
       const pe = clamp(stock.peRatio ?? 25, 0, 25);
       const pePts = (1 - pe / 25) * 25;
@@ -152,8 +149,7 @@ export function calculatePersonalityScore(
     }
     case "momentum": {
       // Strong revenue growth with high sector-relative margin & ROE
-      const growth = clamp(stock.revenueGrowth ?? 15, 0, 40);
-      const growthPts = (growth / 40) * 35;
+      const growthPts = clamp((stock.revenueGrowth ?? 15) / 40, 0.35, 1.0) * 35;
       const marginPts = (marginRatio / 2.0) * 35;
       const roePts = (roeRatio / 2.0) * 30;
       rawScore = growthPts + marginPts + roePts;
