@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PERSONALITIES } from "../src/data/nifty50.js";
 import {
   calculatePersonalityScore,
   computeSectorMedians,
@@ -98,5 +99,35 @@ describe("PersonalityRanker", () => {
     expect(retailScore).toBeGreaterThan(techScore);
     expect(retailScore).toBeGreaterThan(50);
     expect(techScore).toBeGreaterThan(45);
+  });
+
+  it("scores and ranks candidates for all 8 defined personalities", () => {
+    expect(PERSONALITIES).toHaveLength(8);
+    const benchmark = { medianOperatingMargin: 15, medianRoe: 18 };
+    const sampleStock: Fundamentals = {
+      symbol: "TEST1",
+      sector: "Technology",
+      peRatio: 18,
+      pbRatio: 1.8,
+      dividendYield: 2.0,
+      roe: 22,
+      debtToEquity: 0.3,
+      operatingMargin: 20,
+      revenueGrowth: 15,
+      netProfit: 100,
+    };
+
+    for (const personality of PERSONALITIES) {
+      const score = calculatePersonalityScore(personality.id, sampleStock, benchmark);
+      expect(score).toBeGreaterThanOrEqual(0);
+      expect(score).toBeLessThanOrEqual(100);
+      expect(Number.isFinite(score)).toBe(true);
+
+      const ranked = rankPersonalityCandidates(personality.id, () => true, FIXTURE_UNIVERSE);
+      expect(ranked.length).toBe(FIXTURE_UNIVERSE.length);
+      for (let i = 0; i < ranked.length - 1; i++) {
+        expect(ranked[i].score).toBeGreaterThanOrEqual(ranked[i + 1].score);
+      }
+    }
   });
 });
