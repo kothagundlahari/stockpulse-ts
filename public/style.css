@@ -394,6 +394,7 @@ th {
   backdrop-filter: blur(3px);
 }
 
+.hidden,
 .modal.hidden {
   display: none !important;
 }
@@ -682,4 +683,38 @@ footer {
 
 .personality-buy-btn:hover {
   background: #15803d;
+}
+
+.broker-banner {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.broker-banner.success {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #22c55e;
+}
+
+.broker-banner.error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.btn-outline-danger {
+  background: transparent;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  margin-left: 0.5rem;
+}
+
+.btn-outline-danger:hover {
+  background: #ef4444;
+  color: #fff;
 }

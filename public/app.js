@@ -348,6 +348,30 @@ document.getElementById("news-fetch").addEventListener("click", async () => {
   }
 });
 
+// Broker notices & OAuth
+function showBrokerNotice(type, text) {
+  const noticeEl = document.getElementById("broker-notice");
+  if (!noticeEl) return;
+  noticeEl.className = `broker-banner ${type}`;
+  noticeEl.innerHTML = `<span>${text}</span><button type="button" class="btn btn-sm" style="margin-left:1rem;" onclick="this.parentElement.classList.add('hidden')">✕</button>`;
+  noticeEl.classList.remove("hidden");
+}
+
+function checkOAuthParams() {
+  const params = new URLSearchParams(window.location.search);
+  const brokerParam = params.get("broker");
+  if (brokerParam === "connected") {
+    showBrokerNotice("success", "Connected to Upstox successfully!");
+    window.history.replaceState({}, document.title, window.location.pathname);
+    document.querySelector('.tab-btn[data-tab="portfolio"]')?.click();
+  } else if (brokerParam === "error") {
+    const msg = params.get("message") || "Authorization failed";
+    showBrokerNotice("error", `Upstox authorization error: ${msg}`);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    document.querySelector('.tab-btn[data-tab="portfolio"]')?.click();
+  }
+}
+
 // Broker status
 async function loadBrokerStatus() {
   const el = document.getElementById("broker-status");
@@ -356,9 +380,26 @@ async function loadBrokerStatus() {
     const res = await fetch("/api/broker");
     const b = await res.json();
     const authUrl = b.authUrl || "/api/broker";
-    el.innerHTML = b.authenticated
-      ? '<span class="positive">● Connected to Upstox</span>'
-      : `<span class="negative">○ Not connected</span> <button class="btn" onclick="window.open('${authUrl}', '_blank')">Authorize</button>`;
+    if (b.authenticated) {
+      el.innerHTML = `
+        <span class="positive">● Connected to Upstox</span>
+        <button type="button" class="btn btn-sm btn-outline-danger" id="broker-disconnect-btn">Disconnect</button>
+      `;
+      document.getElementById("broker-disconnect-btn")?.addEventListener("click", async () => {
+        if (!confirm("Are you sure you want to disconnect Upstox?")) return;
+        try {
+          await fetch("/api/broker/disconnect", { method: "POST" });
+          showBrokerNotice("success", "Disconnected from Upstox.");
+          loadBrokerStatus();
+          loadPortfolio();
+          loadOrders();
+        } catch (e) {
+          alert(`Failed to disconnect: ${e.message}`);
+        }
+      });
+    } else {
+      el.innerHTML = `<span class="negative">○ Not connected</span> <button class="btn" onclick="window.open('${authUrl}', '_self')">Authorize</button>`;
+    }
   } catch (e) {
     el.innerHTML = `<span class="error">${e.message}</span>`;
   }
@@ -373,6 +414,15 @@ async function loadPortfolio() {
     const res = await fetch("/api/portfolio");
     if (!res.ok) {
       const errData = await res.json().catch(() => null);
+      if (res.status === 401 || errData?.expired) {
+        const brokerEl = document.getElementById("broker-status");
+        if (brokerEl) {
+          const authRes = await fetch("/api/broker").catch(() => null);
+          const b = authRes ? await authRes.json() : {};
+          const authUrl = b.authUrl || "/api/broker";
+          brokerEl.innerHTML = `<span class="negative">○ Session expired</span> <button class="btn" onclick="window.open('${authUrl}', '_self')">Re-authorize</button>`;
+        }
+      }
       throw new Error(errData?.error || "Failed to load portfolio");
     }
     const data = await res.json();
@@ -562,8 +612,20 @@ async function loadOrders() {
   if (!el) return;
   try {
     const res = await fetch("/api/orders");
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      if (res.status === 401 || errData?.expired) {
+        const brokerEl = document.getElementById("broker-status");
+        if (brokerEl) {
+          const authRes = await fetch("/api/broker").catch(() => null);
+          const b = authRes ? await authRes.json() : {};
+          const authUrl = b.authUrl || "/api/broker";
+          brokerEl.innerHTML = `<span class="negative">○ Session expired</span> <button class="btn" onclick="window.open('${authUrl}', '_self')">Re-authorize</button>`;
+        }
+      }
+      throw new Error(errData?.error || "Failed to load orders");
+    }
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to load orders");
     if (!data.orders || !data.orders.length) {
       el.innerHTML = "<p>No orders yet.</p>";
       return;
@@ -602,3 +664,4 @@ loadBrokerStatus();
 loadPortfolio();
 loadOrders();
 loadAiAvailability();
+checkOAuthParams();
