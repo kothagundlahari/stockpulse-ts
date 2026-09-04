@@ -10,7 +10,7 @@ dist/
 # Worktrees
 .worktrees/
 
-# Environment variables (.env contains FYERS API keys)
+# Environment variables (.env contains Upstox API keys / OAuth credentials)
 .env
 *.env.local
 

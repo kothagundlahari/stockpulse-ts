@@ -59,36 +59,6 @@ describe("DatabaseService", () => {
     const entries = db.getJournalEntries();
     expect(entries).toHaveLength(2);
   });
-
-  it("deletes journal entries", () => {
-    db.addJournalEntry({
-      id: "1",
-      symbol: "RELIANCE",
-      date: "2024-01-01T00:00:00Z",
-      action: "BUY",
-      price: 2500,
-      quantity: 10,
-    });
-
-    const deleted = db.deleteJournalEntry("1");
-    expect(deleted).toBe(true);
-    expect(db.getJournalEntries()).toHaveLength(0);
-  });
-
-  it("saves and retrieves screeners", () => {
-    db.saveScreener({
-      id: "test-1",
-      name: "Value Screener",
-      criteria: { minMarketCap: 100000 },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    const screeners = db.getScreeners();
-    expect(screeners).toHaveLength(1);
-    expect(screeners[0].name).toBe("Value Screener");
-    expect(screeners[0].criteria).toEqual({ minMarketCap: 100000 });
-  });
 });
 
 describe("broker tokens", () => {

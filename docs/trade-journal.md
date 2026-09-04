@@ -78,5 +78,5 @@ db.close();
 ## Design notes
 
 - **SQLite is the single source of truth.** Unlike the original Swift app (which mirrored to a git-tracked `Knowledge/` folder), this keeps one authoritative store with no sync bugs.
-- Reset/delete is handled at the DB layer (`deleteJournalEntry`).
+- The journal is **append + read only** in production (`addJournalEntry` / `getJournalEntries`); there is no delete endpoint. To remove a bad entry, delete its row from the `journal` table in `data/stockpulse.db` directly.
 - Broker trade history (from Upstox) is fetched live via the Portfolio tab and is separate from the manual journal entries.

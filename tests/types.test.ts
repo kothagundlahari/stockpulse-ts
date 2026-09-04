@@ -3,7 +3,6 @@ import {
   BacktestConfigSchema,
   QuoteSchema,
   ScreenerCriteriaSchema,
-  ScreenerSchema,
   StockSchema,
 } from "../src/types/index.js";
 
@@ -86,31 +85,6 @@ describe("ScreenerCriteria", () => {
   it("rejects invalid min pe", () => {
     const result = ScreenerCriteriaSchema.safeParse({
       minPe: "not a number",
-    });
-    expect(result.success).toBe(false);
-  });
-});
-
-describe("Screener", () => {
-  it("validates a correct screener", () => {
-    const result = ScreenerSchema.safeParse({
-      id: "test-1",
-      name: "Value Screener",
-      description: "Finds undervalued stocks",
-      criteria: { minMarketCap: 10000 },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects empty id", () => {
-    const result = ScreenerSchema.safeParse({
-      id: "",
-      name: "Value Screener",
-      criteria: {},
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     });
     expect(result.success).toBe(false);
   });

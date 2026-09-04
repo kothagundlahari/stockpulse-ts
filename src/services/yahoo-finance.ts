@@ -95,27 +95,6 @@ export class YahooFinanceService {
       .filter((p) => p.close != null);
   }
 
-  async search(query: string): Promise<{ symbol: string; name: string }[]> {
-    const response = await axios.get("https://query2.finance.yahoo.com/v1/finance/search", {
-      params: {
-        q: query,
-        quotesCount: 10,
-        newsCount: 0,
-      },
-      headers: this.headers,
-    });
-
-    return (response.data.quotes || [])
-      .filter(
-        (q: { exchange: string; quoteType: string }) =>
-          q.exchange === "NSI" && q.quoteType === "EQUITY",
-      )
-      .map((q: { symbol: string; shortname: string }) => ({
-        symbol: q.symbol.replace(".NS", ""),
-        name: q.shortname,
-      }));
-  }
-
   /** Fetch live fundamentals from Yahoo Finance quoteSummary. */
   async getFundamentals(symbol: string): Promise<Fundamentals> {
     const ticker = `${symbol}.NS`;

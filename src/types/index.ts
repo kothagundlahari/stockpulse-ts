@@ -66,21 +66,9 @@ export const ScreenerCriteriaSchema = z.object({
   minRoe: z.number().optional(),
   minRevenueGrowth: z.number().optional(),
   maxDebtToEquity: z.number().optional(),
-  sectors: z.array(z.string()).optional(),
 });
 
 export type ScreenerCriteria = z.infer<typeof ScreenerCriteriaSchema>;
-
-export const ScreenerSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  description: z.string().optional(),
-  criteria: ScreenerCriteriaSchema,
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
-});
-
-export type Screener = z.infer<typeof ScreenerSchema>;
 
 export const BacktestConfigSchema = z.object({
   symbol: z.string(),
@@ -92,27 +80,6 @@ export const BacktestConfigSchema = z.object({
 });
 
 export type BacktestConfig = z.infer<typeof BacktestConfigSchema>;
-
-export const BacktestResultSchema = z.object({
-  config: BacktestConfigSchema,
-  totalReturn: z.number(),
-  sharpeRatio: z.number(),
-  maxDrawdown: z.number(),
-  winRate: z.number(),
-  totalTrades: z.number(),
-  equityCurve: z.array(z.object({ date: z.string(), value: z.number() })),
-  trades: z.array(
-    z.object({
-      entryDate: z.string(),
-      entryPrice: z.number(),
-      exitDate: z.string(),
-      exitPrice: z.number(),
-      pnl: z.number(),
-    }),
-  ),
-});
-
-export type BacktestResult = z.infer<typeof BacktestResultSchema>;
 
 export const JournalEntrySchema = z.object({
   id: z.string(),
@@ -128,12 +95,3 @@ export const JournalEntrySchema = z.object({
 });
 
 export type JournalEntry = z.infer<typeof JournalEntrySchema>;
-
-export const MarketZoneSchema = z.object({
-  niftyPe: z.number(),
-  indiaVix: z.number(),
-  zone: z.enum(["undervalued", "fair", "overvalued"]),
-  sentiment: z.enum(["fear", "neutral", "greed"]),
-});
-
-export type MarketZone = z.infer<typeof MarketZoneSchema>;

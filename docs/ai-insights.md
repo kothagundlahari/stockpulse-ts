@@ -1,68 +1,43 @@
 # AI Insights (Ollama)
 
-AI insights use a **local** Ollama installation, so all inference happens on your machine — no data leaves it. This is an optional, additive feature — the dashboard works fully without it.
+Ollama integration is **optional** — the dashboard works fully without it. Today the integration only **detects whether a local Ollama server is running**; it does not yet generate analysis text. All checks are local (`http://localhost:11434`), so no data leaves your machine.
 
 ## Prerequisites
 
 1. Install [Ollama](https://ollama.com): `brew install ollama` (macOS) or the listed installer for your OS
 2. Start the server: `ollama serve`
-3. Pull at least one model: `ollama pull llama3` (or `qwen3:8b`, `mistral`, etc.)
 
-## Usage
+## What the dashboard does
 
-When Ollama is running, the Portfolio tab shows an AI deep-dive panel for any selected holding. If Ollama is not running, the panel is hidden — nothing else is affected.
-
-Check Ollama availability via the API:
-
-```
-GET /api/ai
-```
-
-Returns `{ "available": true }` or `{ "available": false }`.
-
-## What it generates
-
-The service (`src/services/ollama.ts`) sends a structured prompt with the stock's fundamentals and asks for:
-
-- Overall rating (Strong Buy / Buy / Hold / Sell)
-- Key strengths
-- Key risks
-- Valuation perspective
-- Recommendation rationale
+- On load, the Portfolio tab's "AI deep-dive" panel calls `GET /api/ai`.
+- `GET /api/ai` returns `{ "available": true }` or `{ "available": false }` depending on whether the local Ollama server is reachable.
+- If available, the panel shows *"Ollama detected — AI deep-dive available."* Otherwise it shows *"Ollama not detected — AI deep-dive disabled."*
 
 ## How it works
 
 ```ts
 // src/services/ollama.ts
-POST http://localhost:11434/api/chat
-{
-  model: "llama3",
-  messages: [{ role: "user", content: prompt }],
-  stream: false
+export class OllamaService {
+  async isRunning(): Promise<boolean> {
+    // GET /api/tags with a 2s timeout; true if HTTP 200
+  }
 }
 ```
 
-The service exposes three methods:
+The server health-check is the only call made:
 
-| Method | Purpose |
-|---|---|
-| `isRunning()` | Health check against `/api/tags` |
-| `listModels()` | Enumerate installed models |
-| `generateInsight(model, symbol, fundamentals)` | Produce the analysis text |
+```
+GET /api/ai  →  { "available": true | false }
+```
 
-## Privacy & safety
+The prior insight-generation methods (`listModels`, `generateInsight`, and the chat prompt producing ratings/strengths/risks/valuations) were removed — no production code consumes them. If you add a real analysis pipeline later, extend `OllamaService` with a generation method and wire it into the `ai-deepdive` panel.
 
-- All inference is **local** — no cloud API keys, no data upload.
-- The output is **educational**, not financial advice. Always do your own research and consult a professional before making decisions.
-- The insight depends heavily on the selected model's quality. Larger or finance-tuned models generally give better results.
+## Privacy
+
+- All checks are **local** — no cloud API keys, no data upload.
+- Anything shown is **educational**, not financial advice. Always do your own research and consult a professional before making decisions.
 
 ## Troubleshooting
 
-**"Ollama is not running"**
-Start it with `ollama serve` and confirm with `curl http://localhost:11434/api/tags`.
-
-**"No models installed"**
-Run `ollama pull llama3` (or your model of choice), then retry.
-
-**Slow / low-quality responses**
-Try a larger or domain-specific model from the Ollama library.
+**"Ollama not detected"**
+Start it with `ollama serve` and confirm with `curl http://localhost:11434/api/tags`. If it returns `200`, the panel should report the server as available.
