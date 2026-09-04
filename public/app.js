@@ -87,9 +87,59 @@ const personalitiesState = {
   loading: false,
 };
 
+let personalityTableState = {
+  activePersonalityId: null,
+  sortColumn: "score",
+  sortDirection: "desc",
+  sectorFilter: "ALL",
+};
+
 function renderPersonalityDetail(active, total) {
   const detailPane = document.getElementById("personality-detail-pane");
   if (!detailPane) return;
+
+  personalityTableState.activePersonalityId = active.id;
+
+  const stocks = active.stocks || [];
+  const sectorCounts = new Map();
+  for (const s of stocks) {
+    const sec = s.sector?.trim() || "Other";
+    sectorCounts.set(sec, (sectorCounts.get(sec) || 0) + 1);
+  }
+  const sectors = Array.from(sectorCounts.keys()).sort((a, b) => a.localeCompare(b));
+
+  if (personalityTableState.sectorFilter !== "ALL" && !sectorCounts.has(personalityTableState.sectorFilter)) {
+    personalityTableState.sectorFilter = "ALL";
+  }
+
+  const filteredStocks =
+    personalityTableState.sectorFilter === "ALL"
+      ? [...stocks]
+      : stocks.filter((s) => (s.sector?.trim() || "Other") === personalityTableState.sectorFilter);
+
+  const { sortColumn, sortDirection } = personalityTableState;
+  const dir = sortDirection === "asc" ? 1 : -1;
+
+  filteredStocks.sort((a, b) => {
+    if (sortColumn === "symbol" || sortColumn === "sector") {
+      const aVal = (a[sortColumn] ?? "").toString();
+      const bVal = (b[sortColumn] ?? "").toString();
+      return dir * aVal.localeCompare(bVal);
+    }
+    const aVal = a[sortColumn];
+    const bVal = b[sortColumn];
+    const aMissing = aVal == null || Number.isNaN(Number(aVal));
+    const bMissing = bVal == null || Number.isNaN(Number(bVal));
+    if (aMissing && bMissing) return 0;
+    if (aMissing) return 1;
+    if (bMissing) return -1;
+    return dir * (Number(aVal) - Number(bVal));
+  });
+
+  const getSortIndicator = (col) => {
+    if (sortColumn !== col) return "";
+    return `<span class="sort-indicator">${sortDirection === "asc" ? "▲" : "▼"}</span>`;
+  };
 
   detailPane.innerHTML = `
     <div class="personality-detail-header">
@@ -97,51 +147,103 @@ function renderPersonalityDetail(active, total) {
         <h3>${active.name}</h3>
         <p class="desc">${active.description}</p>
       </div>
-      <div class="personality-match-pill">
-        <strong>${active.matches}</strong> of ${total} stocks match
+      <div class="personality-detail-controls">
+        ${
+          stocks.length > 0
+            ? `<select id="personality-sector-filter" class="form-select personality-sector-filter" aria-label="Filter by Sector">
+                <option value="ALL"${personalityTableState.sectorFilter === "ALL" ? " selected" : ""}>All Sectors (${stocks.length})</option>
+                ${sectors
+                  .map(
+                    (sec) =>
+                      `<option value="${sec}"${personalityTableState.sectorFilter === sec ? " selected" : ""}>${sec} (${sectorCounts.get(sec)})</option>`,
+                  )
+                  .join("")}
+              </select>`
+            : ""
+        }
+        <div class="personality-match-pill">
+          <strong>${active.matches}</strong> of ${total} stocks match
+        </div>
       </div>
     </div>
     ${
-      active.stocks && active.stocks.length
+      stocks.length > 0
         ? `<div class="table-responsive">
             <table>
               <thead>
                 <tr>
-                  <th>Symbol</th>
-                  <th>Market Cap</th>
-                  <th>PE</th>
-                  <th>ROE</th>
-                  <th>Sector</th>
+                  <th class="sortable" data-sort="symbol">Symbol${getSortIndicator("symbol")}</th>
+                  <th class="sortable" data-sort="marketCap">Market Cap${getSortIndicator("marketCap")}</th>
+                  <th class="sortable" data-sort="peRatio">PE${getSortIndicator("peRatio")}</th>
+                  <th class="sortable" data-sort="roe">ROE${getSortIndicator("roe")}</th>
+                  <th class="sortable" data-sort="operatingMargin">Op Margin${getSortIndicator("operatingMargin")}</th>
+                  <th class="sortable" data-sort="sector">Sector${getSortIndicator("sector")}</th>
+                  <th class="sortable" data-sort="score">Score${getSortIndicator("score")}</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                ${active.stocks
-                  .map(
-                    (s) =>
-                      `<tr>
-                        <td>
-                          <button type="button" class="personality-symbol-btn" data-symbol="${s.symbol}" title="Click to trade ${s.symbol}">
-                            ${s.symbol}
-                          </button>
-                        </td>
-                        <td>${formatMC(s.marketCap)}</td>
-                        <td>${num(s.peRatio)}</td>
-                        <td class="${typeof s.roe === "number" && s.roe >= 15 ? "positive" : ""}">${typeof s.roe === "number" && !Number.isNaN(s.roe) ? `${s.roe.toFixed(1)}%` : "—"}</td>
-                        <td>${s.sector ?? "—"}</td>
-                        <td>
-                          <button type="button" class="btn btn-sm personality-buy-btn" data-symbol="${s.symbol}">
-                            Buy
-                          </button>
-                        </td>
-                      </tr>`,
-                  )
-                  .join("")}
+                ${
+                  filteredStocks.length > 0
+                    ? filteredStocks
+                        .map(
+                          (s) =>
+                            `<tr>
+                              <td>
+                                <button type="button" class="personality-symbol-btn" data-symbol="${s.symbol}" title="Click to trade ${s.symbol}">
+                                  ${s.symbol}
+                                </button>
+                              </td>
+                              <td>${formatMC(s.marketCap)}</td>
+                              <td>${num(s.peRatio)}</td>
+                              <td class="${typeof s.roe === "number" && s.roe >= 15 ? "positive" : ""}">${typeof s.roe === "number" && !Number.isNaN(s.roe) ? `${s.roe.toFixed(1)}%` : "—"}</td>
+                              <td>${typeof s.operatingMargin === "number" && !Number.isNaN(s.operatingMargin) ? `${s.operatingMargin.toFixed(1)}%` : "—"}</td>
+                              <td>${s.sector ?? "—"}</td>
+                              <td>
+                                ${
+                                  typeof s.score === "number"
+                                    ? `<span class="score-badge ${s.score >= 80 ? "score-high" : s.score >= 60 ? "score-mid" : "score-low"}">${s.score}</span>`
+                                    : "—"
+                                }
+                              </td>
+                              <td>
+                                <button type="button" class="btn btn-sm personality-buy-btn" data-symbol="${s.symbol}">
+                                  Buy
+                                </button>
+                              </td>
+                            </tr>`,
+                        )
+                        .join("")
+                    : `<tr><td colspan="8" class="muted" style="text-align:center; padding: 1.5rem;">No stocks found in ${personalityTableState.sectorFilter} sector.</td></tr>`
+                }
               </tbody>
             </table>
           </div>`
         : "<p class='muted' style='margin-top:1rem;'>No stocks in the NIFTY 500 currently meet this criteria.</p>"
     }`;
+
+  const sectorFilterEl = detailPane.querySelector("#personality-sector-filter");
+  if (sectorFilterEl) {
+    sectorFilterEl.addEventListener("change", (e) => {
+      personalityTableState.sectorFilter = e.target.value;
+      renderPersonalityDetail(active, total);
+    });
+  }
+
+  detailPane.querySelectorAll("th.sortable").forEach((th) => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.sort;
+      if (!col) return;
+      if (personalityTableState.sortColumn === col) {
+        personalityTableState.sortDirection =
+          personalityTableState.sortDirection === "asc" ? "desc" : "asc";
+      } else {
+        personalityTableState.sortColumn = col;
+        personalityTableState.sortDirection = col === "score" ? "desc" : "asc";
+      }
+      renderPersonalityDetail(active, total);
+    });
+  });
 
   detailPane.querySelectorAll(".personality-symbol-btn, .personality-buy-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -157,7 +259,13 @@ function selectPersonality(id) {
   if (!personalitiesState.data) return;
   const { personalities, total } = personalitiesState.data;
   const active = personalities.find((p) => p.id === id) || personalities[0];
+  if (personalitiesState.activeId !== active.id) {
+    personalityTableState.sectorFilter = "ALL";
+    personalityTableState.sortColumn = "score";
+    personalityTableState.sortDirection = "desc";
+  }
   personalitiesState.activeId = active.id;
+  personalityTableState.activePersonalityId = active.id;
 
   // Toggle active class and aria-selected on buttons without re-rendering sidebar
   const sidebar = document.getElementById("personality-sidebar-list");
@@ -187,6 +295,12 @@ function renderPersonalities() {
   }
 
   const active = personalities.find((p) => p.id === personalitiesState.activeId) || personalities[0];
+  if (personalityTableState.activePersonalityId !== active.id) {
+    personalityTableState.activePersonalityId = active.id;
+    personalityTableState.sectorFilter = "ALL";
+    personalityTableState.sortColumn = "score";
+    personalityTableState.sortDirection = "desc";
+  }
 
   el.innerHTML = `
     <div class="personality-layout">
