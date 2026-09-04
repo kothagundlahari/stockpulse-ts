@@ -1,6 +1,6 @@
 # Backtesting
 
-The backtesting engine (`src/engines/backtest.ts`) simulates a strategy over historical price data.
+The backtesting engine (`src/engines/backtest.ts`) simulates a strategy over historical price data. The engine is pure logic with no I/O.
 
 ## How it works
 
@@ -11,7 +11,7 @@ type Signal = "BUY" | "SELL" | "HOLD";
 type Strategy = (prices: DailyPrice[], index: number) => Signal;
 ```
 
-Processing is **sequential** (index 0 → N), which guarantees **no look-ahead bias** — the strategy only ever sees data up to and including the current day.
+Processing is **sequential** (index 0 to N), which guarantees **no look-ahead bias** — the strategy only ever sees data up to and including the current day.
 
 For each day:
 1. Ask the strategy for a signal
@@ -33,21 +33,25 @@ At the end, any open position is closed at the last available close so the resul
 | `winRate` | % of closed trades that were profitable |
 | `maxDrawdown` | Largest peak-to-trough % drop |
 
-## Built-in strategies (in the CLI)
+## Using it via the API
 
-The engine itself accepts any strategy function. The CLI ships two:
+The backtest is exposed through `GET /api/backtest` on the dashboard:
+
+```
+GET /api/backtest?symbol=TCS&range=1y
+```
+
+The `range` parameter maps to Yahoo Finance ranges: `1d`, `5d`, `1mo`, `3mo`, `6mo`, `1y`, `2y`, `5y`, `10y`, `ytd`, `max`.
+
+## Built-in strategies
+
+The engine itself accepts any strategy function. The server ships two:
 
 ### Buy-and-hold
 Enters on day 0 and holds to the end. Useful as a baseline to beat.
 
-### SMA crossover
+### SMA crossover (default)
 Buys when the 10-day SMA crosses above the 20-day SMA, sells when it crosses below.
-
-```bash
-node dist/cli/index.js backtest TCS --strategy sma_crossover --range 1y
-```
-
-The `--range` option maps to Yahoo Finance ranges: `1mo`, `3mo`, `6mo`, `1y`, `2y`, `5y`.
 
 ## Example output
 
@@ -65,5 +69,5 @@ Win rate:         66.7%
 ## Design notes
 
 - **No slippage/costs are modeled** in this version — a deliberate simplification. Adding them is a matter of subtracting a cost per trade; the engine's trade records make that straightforward.
-- The engine is **pure and dependency-free**, so it's fully unit-testable (see `tests/backtest.test.ts`) and can be reused from any UI later.
+- The engine is **pure and dependency-free**, so it's fully unit-testable (see `tests/backtest.test.ts`) and can be reused from any interface.
 - Because the strategy is injected, you can implement mean-reversion, momentum, RSI, or any custom rule without touching the engine.

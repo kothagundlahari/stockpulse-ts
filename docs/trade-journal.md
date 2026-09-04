@@ -2,45 +2,44 @@
 
 The trade journal records your trades with context so you can review and improve your process. It persists to SQLite via `src/services/database.ts`.
 
+StockPulse has two sources of trade history:
+
+1. **Broker trade history** — orders fetched from Upstox via the Portfolio tab (see [Upstox Trading](upstox-trading.md))
+2. **Manual journal** — your personal trade log with notes, emotions, and lessons (this document)
+
 ## What a journal entry contains
 
 | Field | Required | Description |
 |---|---|---|
-| `symbol` | ✅ | Stock symbol (e.g. `RELIANCE`) |
-| `action` | ✅ | `BUY` or `SELL` |
-| `price` | ✅ | Execution price |
-| `quantity` | ✅ | Number of shares |
-| `date` | ✅ | Auto-set to now |
-| `notes` | ❌ | Free-form notes |
-| `emotions` | ❌ | How you felt (fear, greed, calm...) |
-| `lessons` | ❌ | What you learned |
-| `pnl` | ❌ | Realized P&L (for SELL entries) |
+| `symbol` | Yes | Stock symbol (e.g. `RELIANCE`) |
+| `action` | Yes | `BUY` or `SELL` |
+| `price` | Yes | Execution price |
+| `quantity` | Yes | Number of shares |
+| `date` | Yes | Auto-set to now |
+| `notes` | No | Free-form notes |
+| `emotions` | No | How you felt (fear, greed, calm...) |
+| `lessons` | No | What you learned |
+| `pnl` | No | Realized P&L (for SELL entries) |
 
 Capturing emotions and lessons is what turns a simple log into a **learning tool** — it helps you spot emotional trading patterns over time.
 
-## CLI usage
+## Dashboard usage
 
-### Add an entry (interactive)
+The Journal tab in the dashboard shows all entries from the SQLite database. You can browse your trade history alongside the broker trade history in the Portfolio tab.
 
-```bash
-node dist/cli/index.js journal --add
+## Using the API
+
+```
+GET /api/journal
 ```
 
-You'll be prompted for symbol, action, price, quantity, and optional notes.
-
-### List entries
-
-```bash
-node dist/cli/index.js journal --list
-```
-
-Shows all entries newest-first, color-coded (green BUY / red SELL).
+Returns all journal entries as JSON.
 
 ## Storage
 
 Entries are stored in the `journal` table of `./data/stockpulse.db` (SQLite). The database uses WAL mode for reliability. The `data/` directory is gitignored, so your journal stays local.
 
-```
+```sql
 CREATE TABLE journal (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
@@ -79,4 +78,5 @@ db.close();
 ## Design notes
 
 - **SQLite is the single source of truth.** Unlike the original Swift app (which mirrored to a git-tracked `Knowledge/` folder), this keeps one authoritative store with no sync bugs.
-- Reset/delete is handled at the DB layer (`deleteJournalEntry`); the CLI can be extended to expose it.
+- Reset/delete is handled at the DB layer (`deleteJournalEntry`).
+- Broker trade history (from Upstox) is fetched live via the Portfolio tab and is separate from the manual journal entries.

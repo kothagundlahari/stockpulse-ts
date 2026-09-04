@@ -9,36 +9,20 @@ const CACHE_TTL_MS = 30 * 60 * 1000;
 const SYMBOL_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function parseNifty500Csv(csv: string): string[] {
-  const rows = parse(csv, {
-    columns: true,
-    skip_empty_lines: true,
-    relax_column_count: true,
-    relax_quotes: true,
-  }) as Array<Record<string, string>>;
-  const hasSymbol = rows.some((r) =>
-    Object.keys(r).some((k) => k.trim().toLowerCase() === "symbol"),
-  );
-  if (!hasSymbol) {
-    const raw = parse(csv, {
-      skip_empty_lines: true,
-      relax_column_count: true,
-    });
-    return Array.from(
-      new Set(
-        raw.map((r) =>
-          String(r[0] ?? "")
-            .trim()
-            .toUpperCase(),
-        ),
-      ),
-    ).filter(Boolean);
-  }
-  const symbols = rows.map((r) =>
-    String(r.Symbol ?? r.symbol ?? "")
+  const rows = parse(csv, { skip_empty_lines: true, relax_column_count: true }) as string[][];
+  const symbols = new Set<string>();
+  const firstRow = rows[0] ?? [];
+  const headerTokens = firstRow.map((h) => String(h).trim().toUpperCase());
+  const symbolCol = headerTokens.indexOf("SYMBOL");
+  const dataRows = symbolCol >= 0 ? rows.slice(1) : rows;
+  for (const row of dataRows) {
+    const cell = symbolCol >= 0 ? row[symbolCol] : row[0];
+    const v = String(cell ?? "")
       .trim()
-      .toUpperCase(),
-  );
-  return Array.from(new Set(symbols)).filter(Boolean);
+      .toUpperCase();
+    if (v && v !== "SYMBOL" && /^[A-Z0-9&.-]+$/.test(v)) symbols.add(v);
+  }
+  return Array.from(symbols);
 }
 
 const yahoo = new YahooFinanceService();
@@ -50,7 +34,7 @@ export async function getNifty500Symbols(): Promise<string[]> {
   if (symbolsCache && Date.now() - symbolsCache.at < SYMBOL_TTL_MS) return symbolsCache.symbols;
   const res = await fetch(NSE_CSV_URL, { headers: { "User-Agent": "Mozilla/5.0" } });
   if (!res.ok) {
-    throw new Error(`NSE index CSV request failed with status ${res.status}`);
+    throw new Error(`NSE index CSV fetch failed with HTTP ${res.status}`);
   }
   const csv = await res.text();
   const symbols = parseNifty500Csv(csv);
@@ -78,14 +62,4 @@ export async function getNifty500Fundamentals(force = false): Promise<Fundamenta
     return live;
   })();
   return inflight;
-}
-
-/**
- * Merge live rows over the parsed universe. Because getNifty500Fundamentals
- * already returns one row (live or symbol-only fallback) per universe symbol,
- * the live list is already the merged universe; this helper keeps the
- * "live over parsed universe" contract explicit for callers that merge.
- */
-export function mergeOverNifty500(live: Fundamentals[]): Fundamentals[] {
-  return live;
 }

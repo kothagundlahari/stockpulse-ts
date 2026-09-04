@@ -90,3 +90,40 @@ describe("DatabaseService", () => {
     expect(screeners[0].criteria).toEqual({ minMarketCap: 100000 });
   });
 });
+
+describe("broker tokens", () => {
+  const DB_PATH_1 = "./data/test-broker-token.db";
+  const DB_PATH_2 = "./data/test-broker-token-2.db";
+
+  const cleanup = () => {
+    for (const p of [DB_PATH_1, DB_PATH_2]) {
+      if (fs.existsSync(p)) {
+        fs.unlinkSync(p);
+      }
+    }
+  };
+
+  beforeEach(cleanup);
+  afterEach(cleanup);
+
+  it("stores and retrieves an Upstox access token", () => {
+    const db = new DatabaseService(DB_PATH_1);
+    db.setBrokerToken("upstox", "tok-abc");
+    expect(db.getBrokerToken("upstox")).toBe("tok-abc");
+    db.close();
+  });
+
+  it("updates an existing broker token", () => {
+    const db = new DatabaseService(DB_PATH_1);
+    db.setBrokerToken("upstox", "tok-abc");
+    db.setBrokerToken("upstox", "tok-def");
+    expect(db.getBrokerToken("upstox")).toBe("tok-def");
+    db.close();
+  });
+
+  it("returns null for an unknown broker", () => {
+    const db = new DatabaseService(DB_PATH_2);
+    expect(db.getBrokerToken("nope")).toBeNull();
+    db.close();
+  });
+});

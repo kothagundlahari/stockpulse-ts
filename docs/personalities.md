@@ -1,6 +1,6 @@
 # Personality Screeners
 
-Personality screeners express the investing philosophy of a classic investor as a reusable stock filter. Each personality is a pure `(stocks) => stocks` filter applied over the **NIFTY 50** universe, using live fundamentals fetched from Yahoo Finance at runtime (with the bundled `src/data/nifty50.ts` snapshot as fallback).
+Personality screeners express the investing philosophy of a classic investor as a reusable stock filter. Each personality is a pure `(stocks) => stocks` filter applied over the **dynamic NIFTY 500 universe**, using live fundamentals fetched from Yahoo Finance at runtime.
 
 ## The 8 personalities
 
@@ -17,17 +17,14 @@ Personality screeners express the investing philosophy of a classic investor as 
 
 ## Running it
 
-From the CLI:
+From the dashboard's Personalities tab, or via the API:
 
-```sh
-node dist/cli/index.js personalities               # all personalities
-node dist/cli/index.js personalities -p graham     # just Graham's deep-value screen
-node dist/cli/index.js personalities -p buffett    # just Buffett's quality screen
+```
+GET /api/personalities               # all personalities with match counts
+GET /api/personalities/graham        # just Graham's deep-value screen
 ```
 
-(Build first with `pnpm build`, or use `pnpm exec tsx src/cli/index.ts personalities` to skip the build.)
-
-Each personality prints its matches with symbol, market cap, P/E and ROE.
+Each personality shows its matches with symbol, market cap, P/E, and ROE across the full NIFTY 500 universe.
 
 ## How a filter is defined
 
@@ -60,17 +57,21 @@ Filters guard against `undefined` (a stock missing a required field simply fails
 
 ## Data model
 
-The universe starts from `src/data/nifty50.ts`: a `NIFTY50` array of ~49 unique `Fundamentals` records with `symbol`, `sector`, `marketCap`, `peRatio`, `pbRatio`, `dividendYield`, `roe`, `debtToEquity`, and `revenueGrowth`. These serve as the symbol list and a fallback snapshot.
+The personality filters operate over the dynamic NIFTY 500 universe (`src/data/nifty500.ts`):
 
-When you run the CLI or the dashboard's Personalities tab, the screeners fetch **live fundamentals** for every NIFTY 50 constituent from Yahoo Finance (`getLiveNifty50Fundamentals` in `src/data/live-nifty50.ts`), fetched concurrently (4 at a time) and cached in-memory for 15 minutes. Live values are merged over the bundled snapshot (`mergeFundamentals`) so every field stays populated even if a symbol can't be fetched — in which case the static value is used as a fallback.
+- **Symbol list** is fetched live from the NSE index constituents CSV
+- **Per-symbol fundamentals** are fetched from Yahoo Finance with a 30-minute cache
+- Symbols that fail to fetch are silently skipped
+
+The `src/data/nifty50.ts` file contains only the filter definitions — no hardcoded stock data.
 
 ## Adding a personality
 
 1. Add an entry to `PERSONALITIES` in `src/data/nifty50.ts`.
 2. Add a test asserting the filter picks and excludes known names in `tests/personalities.test.ts` (TDD).
-3. No other wiring needed — the CLI and dashboard read `PERSONALITIES` directly.
+3. No other wiring needed — the dashboard reads `PERSONALITIES` directly.
 
 ## Notes
 
-- The eight names overlap: a quality compounder often appears under several personalities. That's expected — each encodes a different weighting, and the CLI shows the match count out of the full universe.
-- If you change the bundled fundamentals, re-run `tests/personalities.test.ts` to confirm the assertion stocks still pass/fail as intended.
+- The eight names overlap: a quality compounder often appears under several personalities. That's expected — each encodes a different weighting.
+- If the fundamentals fetch fails for a symbol, that symbol is simply not included in results — it is never fatal.

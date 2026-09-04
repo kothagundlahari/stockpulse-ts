@@ -1,6 +1,6 @@
 # AI Insights (Ollama)
 
-AI insights use a **local** Ollama installation, so all inference happens on your machine — no data leaves it.
+AI insights use a **local** Ollama installation, so all inference happens on your machine — no data leaves it. This is an optional, additive feature — the dashboard works fully without it.
 
 ## Prerequisites
 
@@ -10,15 +10,15 @@ AI insights use a **local** Ollama installation, so all inference happens on you
 
 ## Usage
 
-```bash
-node dist/cli/index.js insight RELIANCE
+When Ollama is running, the Portfolio tab shows an AI deep-dive panel for any selected holding. If Ollama is not running, the panel is hidden — nothing else is affected.
+
+Check Ollama availability via the API:
+
+```
+GET /api/ai
 ```
 
-By default it uses the first installed model. Specify one explicitly:
-
-```bash
-node dist/cli/index.js insight TCS --model llama3
-```
+Returns `{ "available": true }` or `{ "available": false }`.
 
 ## What it generates
 
@@ -29,8 +29,6 @@ The service (`src/services/ollama.ts`) sends a structured prompt with the stock'
 - Key risks
 - Valuation perspective
 - Recommendation rationale
-
-The model returns a free-text analysis, printed to the terminal.
 
 ## How it works
 

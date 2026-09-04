@@ -35,11 +35,15 @@ export class UpstoxClient implements Broker {
     this.config.accessToken = res.data.access_token;
   }
 
+  getAccessToken(): string {
+    return this.config.accessToken ?? "";
+  }
+
   private headers(): Record<string, string> {
     if (!this.config.accessToken) {
       throw new Error("Not authenticated. Complete the Upstox OAuth flow first.");
     }
-    return { Authorization: `Bearer ${this.config.accessToken}`, Accept: "application/json" };
+    return { Authorization: `Bearer ${this.config.accessToken}` };
   }
 
   async getHoldings(): Promise<Holding[]> {
@@ -75,7 +79,9 @@ export class UpstoxClient implements Broker {
   }
 
   async getOrders(): Promise<Order[]> {
-    const res = await axios.get(`${this.base}/orders`, { headers: this.headers() });
+    const res = await axios.get(`${this.base}/orders`, {
+      headers: this.headers(),
+    });
     const rows = res.data.data ?? [];
     return rows.map((o: Record<string, number | string>) => ({
       id: String(o.order_id),
@@ -92,10 +98,11 @@ export class UpstoxClient implements Broker {
     if (!params.confirm) {
       throw new Error("Trade not confirmed. Pass confirm:true to place a real order.");
     }
+    const instrumentToken = await this.resolveInstrumentKey(params.symbol);
     const res = await axios.post(
       `${this.base}/order/place`,
       {
-        instrument_token: params.symbol,
+        instrument_token: instrumentToken,
         order_type: params.type === "LIMIT" ? "LIMIT" : "MARKET",
         transaction_type: params.side,
         quantity: params.qty,
@@ -106,6 +113,22 @@ export class UpstoxClient implements Broker {
       { headers: this.headers() },
     );
     return { id: String(res.data.data?.order_id ?? "") };
+  }
+
+  private async resolveInstrumentKey(symbol: string): Promise<string> {
+    const res = await axios.get(`${this.base}/instruments/search/${encodeURIComponent(symbol)}`, {
+      headers: this.headers(),
+    });
+    const rows: Array<Record<string, unknown>> = res.data.data ?? [];
+    const match = rows.find(
+      (r) => String(r.segment) === "NSE_EQ" && String(r.instrument_type) === "EQ",
+    );
+    if (match && typeof match.instrument_key === "string" && match.instrument_key) {
+      return match.instrument_key;
+    }
+    throw new Error(
+      `Could not resolve Upstox instrument key for symbol "${symbol}". Verify the symbol is valid on NSE.`,
+    );
   }
 }
 

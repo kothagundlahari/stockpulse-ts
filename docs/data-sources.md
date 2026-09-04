@@ -1,20 +1,21 @@
 # Data Sources
 
-All primary data sources are free and require no API keys. Only FYERS (for live trading) needs credentials.
+StockPulse pulls data from multiple free sources to build a complete picture of the Indian equity market. Only Upstox (for live trading) requires credentials.
 
 | Source | Data provided | Auth required | Cost |
 |---|---|---|---|
-| Yahoo Finance v8 API | Live quotes, historical prices, search | No | Free |
+| Yahoo Finance v8 API | Live quotes, historical prices, fundamentals, search | No | Free |
+| NSE Index CSV | NIFTY 500 constituent symbol list | No | Free |
 | Google News RSS | Stock-specific news | No | Free |
 | MoneyControl RSS | Market commentary | No | Free |
-| FYERS API v3 | Live quotes, order placement | Yes (OAuth) | Free* |
+| Upstox Developer API | Holdings, positions, orders, trade placement | Yes (OAuth) | Free* |
 | Ollama (local) | AI insights | No | Free |
 
-\* FYERS requires an approved developer account, but the API itself has no per-call cost for personal use.
+\* Upstox has no per-call cost for personal use. The API key and secret are required.
 
 ## Yahoo Finance (`/services/yahoo-finance.ts`)
 
-Used for the core market data. Symbols are suffixed with `.NS` to target the National Stock Exchange.
+Used for core market data: live quotes, historical OHLCV, per-symbol fundamentals, and symbol search. Symbols are suffixed with `.NS` to target the National Stock Exchange.
 
 **Important:** Yahoo now rejects requests without a browser-style `User-Agent` header (returning `404`/`429`), and the raw `quote` endpoint is unreliable. This service therefore:
 
@@ -22,10 +23,21 @@ Used for the core market data. Symbols are suffixed with `.NS` to target the Nat
 - Sources **live quotes from chart metadata** (`/v8/finance/chart`, range `1d`), which is more permissive and returns the same fields (LTP, prev close, day high/low, volume, timestamp) plus the per-bar open
 
 **Endpoints used:**
-- `GET /v8/finance/chart/{symbol}.NS?range=…&interval=1d` — quote + historical OHLCV
+- `GET /v8/finance/chart/{symbol}.NS?range=...&interval=1d` — quote + historical OHLCV
 - `GET /v1/finance/search` — symbol search
 
 **Handled:** `.NS` suffixing, Indian exchange filtering, day-open extracted from the latest price bar, error propagation with a clear message.
+
+## NSE Index CSV (`/data/nifty500.ts`)
+
+The NIFTY 500 universe is sourced live from the official NSE index constituents CSV (`ind_nifty500list.csv`). This is the primary symbol list used by the screener, personality filters, and the dynamic universe.
+
+- Symbols are parsed from the CSV at fetch time
+- The symbol list is cached for 24 hours
+- Per-symbol fundamentals are fetched from Yahoo Finance and cached for 30 minutes
+- Symbols that fail to fetch are silently skipped
+
+Multiple sources are used because no single source provides everything: NSE provides the authoritative constituent list, while Yahoo Finance provides the fundamental data (P/E, ROE, debt-to-equity, etc.) needed for screening.
 
 ## News RSS (`/services/news.ts`)
 
@@ -33,17 +45,18 @@ Combines Google News RSS (queried per-symbol) and MoneyControl headlines. The pa
 
 Failed feeds are skipped silently so one slow feed never blocks the rest.
 
-## FYERS (`/services/fyers.ts`)
+## Upstox (`/services/upstox.ts`)
 
-See [Live Trading & FYERS](fyers-trading.md). Requires OAuth2 credentials.
+See [Upstox Trading](upstox-trading.md). Provides holdings, positions, orders, and trade execution via the Upstox Developer API. Requires OAuth2 credentials.
 
 ## Ollama (`/services/ollama.ts`)
 
-See [AI Insights](ai-insights.md). Runs entirely locally.
+See [AI Insights](ai-insights.md). Runs entirely locally. Optional — the dashboard works without it.
 
 ## Limitations & rate limits
 
-- **Yahoo Finance** can rate-limit heavy usage, and now requires a browser `User-Agent` header (the service sets it automatically). The CLI makes one request per command, which is typically fine. If you hit `429` or empty data, wait a few seconds and retry.
+- **Yahoo Finance** can rate-limit heavy usage, and now requires a browser `User-Agent` header (the service sets it automatically). If you hit `429` or empty data, wait a few seconds and retry.
 - The live quote's **open** price is taken from the latest intraday price bar; on non-trading days it may equal the last price.
 - **RSS feeds** may occasionally return empty results. The parser returns an empty array rather than throwing.
+- **NSE CSV** may occasionally be unavailable. A failed fetch throws an error; the cached symbol list is used if available.
 - This tool is for **research only**; always cross-check data with your broker before acting on it.

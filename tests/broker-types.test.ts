@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  Broker,
-  Holding,
-  Order,
-  PlaceOrderParams,
-  Position,
-} from "../src/services/broker-types.js";
+import type { Broker, Holding, Order, PlaceOrderParams } from "../src/services/broker-types.js";
 
 const holding: Holding = {
   symbol: "RELIANCE",

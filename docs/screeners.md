@@ -1,6 +1,10 @@
 # Screeners
 
-Screeners filter a universe of stocks down to those matching your criteria. The engine (`src/engines/screener.ts`) is a pure function.
+Screeners filter a universe of stocks down to those matching your criteria. The engine (`src/engines/screener.ts`) is a pure function with no I/O.
+
+## Universe
+
+The screener operates over the **dynamic NIFTY 500 universe** (`src/data/nifty500.ts`). Symbol lists are fetched live from the NSE index constituents CSV, and per-symbol fundamentals are fetched from Yahoo Finance with a 30-minute cache. There is no hardcoded stock data.
 
 ## Available criteria
 
@@ -12,7 +16,7 @@ Screeners filter a universe of stocks down to those matching your criteria. The 
 | `minDividendYield` | Minimum dividend yield (%) |
 | `minRoe` | Minimum return on equity (%) |
 | `maxDebtToEquity` | Maximum debt-to-equity ratio |
-| `sectors` | Allowed sectors (reserved for future use) |
+| `minRevenueGrowth` | Minimum revenue growth (%) |
 
 Every criterion is **optional**. Only the criteria you specify are applied; unspecified ones don't constrain results.
 
@@ -22,18 +26,25 @@ Every criterion is **optional**. Only the criteria you specify are applied; unsp
 - If a stock is **missing the required field**, it's treated as failing that criterion. For example, `{ maxPe: 20 }` excludes any stock whose `peRatio` is `undefined`.
 - An empty criteria object returns the entire universe.
 
-## Example
+## Using it via the API
 
-Filter for large-cap, reasonably valued, high-ROE, low-debt stocks:
+The screener is exposed through `GET /api/screen` on the web dashboard. Pass criteria as query parameters:
 
-```ts
-const results = engine.filter(stocks, {
-  minMarketCap: 500000, // ₹5 lakh crore
-  maxPe: 30,
-  minRoe: 15,
-  maxDebtToEquity: 0.5,
-});
 ```
+GET /api/screen?minMarketCap=500000&maxPe=30&minRoe=15&maxDebtToEquity=0.5
+```
+
+Response:
+
+```json
+{
+  "total": 500,
+  "matches": 12,
+  "stocks": [...]
+}
+```
+
+Available query parameters: `minMarketCap`, `maxMarketCap`, `minPe`, `maxPe`, `minPb`, `maxPb`, `minDividendYield`, `minRoe`, `maxDebtToEquity`, `minRevenueGrowth`.
 
 ## Values vs. percentages
 
@@ -41,10 +52,6 @@ The engine compares raw numeric values. It does **not** divide by 100 for you:
 - `minDividendYield: 2` means a **2%** yield
 - `minRoe: 15` means **15%** ROE
 - `maxDebtToEquity: 0.5` means a 0.5 ratio
-
-## Feeding it data
-
-The screener needs an array of `Fundamentals`. The CLI's `screen` command is currently a stub — it validates the flags but doesn't yet wire a live data source, so running it live is a remaining step. The engine is fully exercised by unit tests against realistic mock data (`tests/screener.test.ts`), and live fundamentals are already fetched from Yahoo Finance for the personality screeners (`getLiveNifty50Fundamentals` in `src/data/live-nifty50.ts`) — the same source can back the `screen` command.
 
 ## Using it in your own code
 

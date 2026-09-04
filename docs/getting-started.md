@@ -6,7 +6,7 @@ This guide walks you through installing and running StockPulse for the first tim
 
 - **Node.js 18+** (tested on 22)
 - **pnpm** (package manager — install via `npm install -g pnpm` or Corepack)
-- Optional: **Ollama** for AI insights, **FYERS API credentials** for live trading
+- Optional: **Ollama** for AI insights, **Upstox developer account** for live trading
 
 ## Installation
 
@@ -24,64 +24,29 @@ pnpm test
 
 This runs the TDD test suite. All tests should pass.
 
-## Quick usage
+## Starting the dashboard
 
-### Get a live quote
-
-```bash
-pnpm build   # compile first (or use `pnpm exec tsx src/cli/index.ts`)
-node dist/cli/index.js quote RELIANCE
-```
-
-Output:
-
-```
-RELIANCE @ ₹2500.00
-  Change: +2.04%
-  Open: ₹2480.00  High: ₹2520.00  Low: ₹2460.00
-  Volume: 1,000,000
-```
-
-### Backtest a stock
+StockPulse is a UI-first web dashboard. The web server is the only entry point.
 
 ```bash
-node dist/cli/index.js backtest TCS --strategy sma_crossover
+pnpm dev          # starts the server and opens http://localhost:8787
+pnpm dev:server   # starts the server without opening a browser
 ```
 
-### Run a personality screener
+`PORT` is configurable via the `PORT` environment variable (default `8787`).
+
+Once running, the dashboard opens in your browser with tabs for Quotes, Personalities, Backtest, Journal, News, and Portfolio.
+
+### Production mode
 
 ```bash
-node dist/cli/index.js personalities
-node dist/cli/index.js personalities -p graham
-```
-
-### Fetch recent news
-
-```bash
-node dist/cli/index.js news HDFCBANK
-```
-
-### Trade journal
-
-```bash
-# Add an entry (interactive)
-node dist/cli/index.js journal --add
-
-# List all entries
-node dist/cli/index.js journal --list
-```
-
-To develop without a manual build step, prefix any command with `pnpm exec tsx src/cli/index.ts` in place of `node dist/cli/index.js`.
-
-### Start the web dashboard
-
-```bash
-pnpm dev   # starts the server and opens http://localhost:8787
+pnpm build        # compile first
+pnpm start:server # runs node dist/server.js
 ```
 
 ## Option A: Enable AI insights (Ollama)
 
-AI insights run entirely on your local machine using [Ollama](https://ollama.com).
+AI insights run entirely on your local machine using [Ollama](https://ollama.com). This is completely optional — the dashboard works without it.
 
 ```bash
 # Install Ollama
@@ -90,33 +55,29 @@ brew install ollama
 # Start the server
 ollama serve
 
-# Pull a model (this is one option; 'llama3' or 'qwen3:8b' also work)
+# Pull a model (llama3 or qwen3:8b also work)
 ollama pull llama3
 ```
 
-Then generate a stock insight:
+If Ollama is running, the Portfolio tab shows an AI deep-dive panel for any holding. If Ollama is not running, the panel is hidden — nothing else is affected.
 
-```bash
-node dist/cli/index.js insight RELIANCE
-```
+## Option B: Enable live trading (Upstox)
 
-## Option B: Enable live trading (FYERS)
-
-Live trading requires a FYERS developer account. See [Live Trading & FYERS](fyers-trading.md) for the full setup.
+Live trading requires an Upstox developer account. See [Upstox Trading](upstox-trading.md) for the full setup.
 
 ## Where data lives
 
 - **SQLite database**: `./data/stockpulse.db` (auto-created)
 - **Cached prices**: Yahoo Finance API (no local storage)
-- The `data/` folder is gitignored — it holds your local journal and screeners.
+- The `data/` folder is gitignored — it holds your local journal, screeners, and broker tokens.
 
 ## Troubleshooting
-
-**"Cannot find module 'commander'"**
-Run `pnpm install` again, then `pnpm build`.
 
 **Backtest returns no data**
 The Yahoo Finance endpoint may be rate-limiting. Wait a moment and retry. Check your internet connection.
 
-**Ollama insight says the server isn't running**
-Start Ollama with `ollama serve` and pull a model first.
+**Ollama insight panel not showing**
+Start Ollama with `ollama serve` and pull a model first. The panel is only visible when Ollama is running locally.
+
+**Upstox holdings not loading**
+Ensure `UPSTOX_API_KEY`, `UPSTOX_API_SECRET`, and `UPSTOX_REDIRECT_URI` are set in your environment. Re-authenticate via the Portfolio tab if your token has expired.

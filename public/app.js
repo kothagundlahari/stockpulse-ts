@@ -13,6 +13,13 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+
+    if (btn.dataset.tab === "portfolio") {
+      loadBrokerStatus();
+      loadPortfolio();
+      loadOrders();
+      loadAiAvailability();
+    }
   });
 });
 
@@ -156,6 +163,192 @@ document.getElementById("news-fetch").addEventListener("click", async () => {
   }
 });
 
-// Load personalities + journal on startup
+// Broker status
+async function loadBrokerStatus() {
+  const el = document.getElementById("broker-status");
+  if (!el) return;
+  try {
+    const res = await fetch("/api/broker");
+    const b = await res.json();
+    const authUrl = b.authUrl || "/api/broker";
+    el.innerHTML = b.authenticated
+      ? '<span class="positive">● Connected to Upstox</span>'
+      : `<span class="negative">○ Not connected</span> <button class="btn" onclick="window.open('${authUrl}', '_blank')">Authorize</button>`;
+  } catch (e) {
+    el.innerHTML = `<span class="error">${e.message}</span>`;
+  }
+}
+
+// Portfolio + recommendations
+async function loadPortfolio() {
+  const el = document.getElementById("portfolio-holdings");
+  if (!el) return;
+  el.innerHTML = "<p>Loading…</p>";
+  try {
+    const res = await fetch("/api/portfolio");
+    if (!res.ok) throw new Error("Failed to load portfolio");
+    const data = await res.json();
+    if (!data.holdings || data.holdings.length === 0) {
+      el.innerHTML = "<p>No holdings found.</p>";
+      return;
+    }
+    el.innerHTML = data.holdings
+      .map((h) => {
+        const action = h.recommendation?.action ?? "HOLD";
+        const recCls =
+          action === "BUY_MORE"
+            ? "positive"
+            : action === "SELL"
+              ? "negative"
+              : "neutral";
+        const pnlCls = (h.pnl ?? 0) >= 0 ? "positive" : "negative";
+        const pnlPercentFormatted = (h.pnlPercent != null ? Number(h.pnlPercent) : 0).toFixed(2);
+        const dayCls = (h.dayChangePercent ?? 0) >= 0 ? "positive" : "negative";
+        const reasons = h.recommendation?.reasons?.length
+          ? h.recommendation.reasons.join(" · ")
+          : "";
+        return `<div class="holding">
+        <div class="row"><strong>${h.symbol}</strong> <span class="rec badge ${recCls}">${action.replace("_", " ")}</span></div>
+        <div class="metric-grid">
+          <div class="metric"><div class="label">Qty</div><div class="value">${h.quantity}</div></div>
+          <div class="metric"><div class="label">Avg</div><div class="value">${money(h.averagePrice)}</div></div>
+          <div class="metric"><div class="label">LTP</div><div class="value">${money(h.ltp)}</div></div>
+          <div class="metric ${dayCls}"><div class="label">Day Chg</div><div class="value">${(h.dayChangePercent ?? 0) >= 0 ? "+" : ""}${h.dayChangePercent != null ? Number(h.dayChangePercent).toFixed(2) + "%" : "—"}</div></div>
+          <div class="metric ${pnlCls}"><div class="label">P&L</div><div class="value">${h.pnl >= 0 ? "+" : ""}${money(h.pnl)} (${pnlPercentFormatted}%)</div></div>
+          <div class="metric"><div class="label">Value</div><div class="value">${money(h.currentValue)}</div></div>
+        </div>
+        ${reasons ? `<details><summary class="muted">View reasons</summary><p class="desc">${reasons}</p></details>` : ""}
+      </div>`;
+      })
+      .join("");
+  } catch (e) {
+    el.innerHTML = `<p class="error">${e.message}</p>`;
+  }
+}
+
+// Trade handlers
+const tradeTypeEl = document.getElementById("trade-type");
+if (tradeTypeEl) {
+  tradeTypeEl.addEventListener("change", (e) => {
+    const priceEl = document.getElementById("trade-price");
+    if (priceEl) {
+      priceEl.style.display = e.target.value === "LIMIT" ? "inline-block" : "none";
+    }
+  });
+}
+
+document.getElementById("trade-open")?.addEventListener("click", () => {
+  const symbol = document.getElementById("trade-symbol").value.trim().toUpperCase();
+  const qty = Number(document.getElementById("trade-qty").value);
+  const side = document.getElementById("trade-side").value;
+  const type = document.getElementById("trade-type").value;
+  const priceEl = document.getElementById("trade-price");
+  const limitPrice = priceEl && priceEl.value ? Number(priceEl.value) : undefined;
+
+  if (!symbol || !qty || qty <= 0) {
+    alert("Enter a symbol and a positive quantity.");
+    return;
+  }
+  if (type === "LIMIT" && (!limitPrice || limitPrice <= 0)) {
+    alert("Enter a positive limit price for LIMIT orders.");
+    return;
+  }
+
+  const modal = document.getElementById("trade-modal");
+  modal.classList.remove("hidden");
+  modal.querySelector(".modal-summary").textContent =
+    `${side} ${qty} × ${symbol} (${type}) — this places a REAL order with your broker.`;
+});
+
+document.getElementById("trade-cancel")?.addEventListener("click", () => {
+  document.getElementById("trade-modal").classList.add("hidden");
+});
+
+document.getElementById("trade-confirm")?.addEventListener("click", async (e) => {
+  const confirmBtn = e.currentTarget;
+  const originalText = confirmBtn.textContent;
+  const modal = document.getElementById("trade-modal");
+  const symbol = document.getElementById("trade-symbol").value.trim().toUpperCase();
+  const qty = Number(document.getElementById("trade-qty").value);
+  const side = document.getElementById("trade-side").value;
+  const type = document.getElementById("trade-type").value;
+  const priceEl = document.getElementById("trade-price");
+  const limitPrice = priceEl && priceEl.value ? Number(priceEl.value) : undefined;
+
+  const payload = { symbol, side, qty, type, confirm: true };
+  if (type === "LIMIT" && limitPrice != null) {
+    payload.limitPrice = limitPrice;
+  }
+
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = "Placing order...";
+
+  try {
+    const res = await fetch("/api/trade", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Order failed");
+    alert(`Order placed: ${data.id}`);
+    modal.classList.add("hidden");
+    document.getElementById("trade-symbol").value = "";
+    document.getElementById("trade-qty").value = "";
+    if (priceEl) priceEl.value = "";
+    loadPortfolio();
+    loadOrders();
+  } catch (err) {
+    alert(`Trade failed: ${err.message}`);
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = originalText;
+  }
+});
+
+// Orders
+async function loadOrders() {
+  const el = document.getElementById("portfolio-orders");
+  if (!el) return;
+  try {
+    const res = await fetch("/api/orders");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load orders");
+    if (!data.orders || !data.orders.length) {
+      el.innerHTML = "<p>No orders yet.</p>";
+      return;
+    }
+    el.innerHTML = data.orders
+      .map(
+        (o) =>
+          `<div class="entry"><strong>${o.symbol}</strong> <span class="${o.side === "BUY" ? "positive" : "negative"}">${o.side}</span> ${o.qty} @ ${money(o.price)} · ${o.status}</div>`,
+      )
+      .join("");
+  } catch (e) {
+    el.innerHTML = `<p class="error">${e.message}</p>`;
+  }
+}
+
+// Optional AI deep-dive (Ollama)
+async function loadAiAvailability() {
+  const el = document.getElementById("ai-deepdive");
+  if (!el) return;
+  try {
+    const res = await fetch("/api/ai");
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    el.innerHTML = data.available
+      ? '<p class="muted">Ollama detected — AI deep-dive available.</p>'
+      : '<p class="muted">Ollama not detected — AI deep-dive disabled.</p>';
+  } catch {
+    el.innerHTML = '<p class="muted">Ollama not detected — AI deep-dive disabled.</p>';
+  }
+}
+
+// Startup
 loadPersonalities();
 loadJournal();
+loadBrokerStatus();
+loadPortfolio();
+loadOrders();
+loadAiAvailability();

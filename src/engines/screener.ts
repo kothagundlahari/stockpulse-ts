@@ -43,6 +43,11 @@ export class ScreenerEngine {
         stock.debtToEquity !== undefined && stock.debtToEquity <= criteria.maxDebtToEquity,
       );
     }
+    if (criteria.minRevenueGrowth !== undefined) {
+      checks.push(
+        stock.revenueGrowth !== undefined && stock.revenueGrowth >= criteria.minRevenueGrowth,
+      );
+    }
 
     return checks.every(Boolean);
   }

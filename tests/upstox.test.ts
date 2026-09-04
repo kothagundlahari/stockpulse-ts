@@ -44,7 +44,7 @@ describe("UpstoxClient", () => {
     expect(holdings[0].currentValue).toBe(25000);
     expect(axios.get).toHaveBeenCalledWith(
       expect.stringContaining("long-term-holdings"),
-      expect.objectContaining({ headers: expect.objectContaining(authHeader) }),
+      expect.objectContaining({ headers: authHeader }),
     );
   });
 
@@ -84,18 +84,42 @@ describe("UpstoxClient", () => {
 
   it("placeOrder posts to /order/place when confirmed", async () => {
     vi.spyOn(axios, "post").mockResolvedValue({ data: { data: { order_id: "o9" } } });
+    vi.spyOn(axios, "get").mockResolvedValue({
+      data: {
+        data: [
+          {
+            instrument_key: "NSE_EQ|INE002A01018",
+            trading_symbol: "RELIANCE",
+            exchange: "NSE",
+            segment: "NSE_EQ",
+            instrument_type: "EQ",
+          },
+        ],
+      },
+    });
     const result = await client.placeOrder({
-      symbol: "TCS",
+      symbol: "RELIANCE",
       qty: 5,
       side: "BUY",
       type: "MARKET",
       confirm: true,
     });
     expect(result.id).toBe("o9");
+    expect(axios.get).toHaveBeenCalledWith(
+      expect.stringContaining("instruments/search/RELIANCE"),
+      expect.objectContaining({ headers: authHeader }),
+    );
     expect(axios.post).toHaveBeenCalledWith(
       expect.stringContaining("order/place"),
-      expect.anything(),
-      expect.objectContaining({ headers: expect.objectContaining(authHeader) }),
+      expect.objectContaining({ instrument_token: "NSE_EQ|INE002A01018" }),
+      expect.objectContaining({ headers: authHeader }),
     );
+  });
+
+  it("placeOrder throws when instrument key cannot be resolved", async () => {
+    vi.spyOn(axios, "get").mockResolvedValue({ data: { data: [] } });
+    await expect(
+      client.placeOrder({ symbol: "UNKNOWN", qty: 1, side: "BUY", type: "MARKET", confirm: true }),
+    ).rejects.toThrow(/instrument/i);
   });
 });
