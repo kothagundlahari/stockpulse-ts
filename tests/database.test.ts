@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import SqliteDb from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseService } from "../src/services/database.js";
@@ -19,6 +20,7 @@ describe("journal removal migration", () => {
   afterEach(cleanup);
 
   it("drops the legacy journal table during migration", () => {
+    fs.mkdirSync(path.dirname(JOURNAL_REMOVAL_DB), { recursive: true });
     const legacyDb = new SqliteDb(JOURNAL_REMOVAL_DB);
     legacyDb.exec("CREATE TABLE journal (id TEXT PRIMARY KEY, notes TEXT)");
     legacyDb.prepare("INSERT INTO journal (id, notes) VALUES (?, ?)").run("1", "legacy");
