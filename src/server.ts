@@ -265,7 +265,7 @@ export async function router(
     }
 
     const matched = screener.runCriteria(universe, parsed.data);
-    sendJson(res, 200, { total: universe.length, matches: matched.length, stocks: matched });
+    sendJson(res, 200, { total: universe.length, matches: matched.length, fundamentals: matched });
     return;
   }
 

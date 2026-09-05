@@ -39,7 +39,7 @@ GET /api/screener?minMarketCap=500000&maxPe=30&minRoe=15&maxDebtToEquity=0.5
 {
   "total": 500,
   "matches": 12,
-  "stocks": []
+  "fundamentals": []
 }
 ```
 

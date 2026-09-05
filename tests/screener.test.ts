@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Screener, screener } from "../src/engines/screener.js";
 import type { Fundamentals } from "../src/types/index.js";
 
-const mockStocks: Fundamentals[] = [
+const mockUniverse: Fundamentals[] = [
   {
     symbol: "RELIANCE",
     marketCap: 1500000,
@@ -46,85 +46,85 @@ const mockStocks: Fundamentals[] = [
 ];
 
 describe("Screener", () => {
-  it("returns all stocks when criteria is empty", () => {
+  it("returns the whole Universe when Criteria is empty", () => {
     const engine = new Screener();
-    const results = engine.runCriteria(mockStocks, {});
+    const results = engine.runCriteria(mockUniverse, {});
     expect(results).toHaveLength(4);
   });
 
-  it("filters by minimum market cap", () => {
+  it("applies Criteria minMarketCap", () => {
     const engine = new Screener();
-    const results = engine.runCriteria(mockStocks, { minMarketCap: 1000000 });
+    const results = engine.runCriteria(mockUniverse, { minMarketCap: 1000000 });
     expect(results).toHaveLength(2);
-    expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "HDFCBANK"]);
+    expect(results.map((member) => member.symbol)).toEqual(["RELIANCE", "HDFCBANK"]);
   });
 
-  it("filters by maximum market cap", () => {
+  it("applies Criteria maxMarketCap", () => {
     const engine = new Screener();
-    const results = engine.runCriteria(mockStocks, { maxMarketCap: 900000 });
+    const results = engine.runCriteria(mockUniverse, { maxMarketCap: 900000 });
     expect(results).toHaveLength(2);
-    expect(results.map((s) => s.symbol)).toEqual(["TCS", "INFY"]);
+    expect(results.map((member) => member.symbol)).toEqual(["TCS", "INFY"]);
   });
 
-  it("filters by PE ratio range", () => {
+  it("applies Criteria PE range", () => {
     const engine = new Screener();
-    const results = engine.runCriteria(mockStocks, { minPe: 20, maxPe: 30 });
+    const results = engine.runCriteria(mockUniverse, { minPe: 20, maxPe: 30 });
     expect(results).toHaveLength(3);
-    expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "HDFCBANK", "INFY"]);
+    expect(results.map((member) => member.symbol)).toEqual(["RELIANCE", "HDFCBANK", "INFY"]);
   });
 
-  it("filters by minimum dividend yield", () => {
+  it("applies Criteria minDividendYield", () => {
     const engine = new Screener();
-    const results = engine.runCriteria(mockStocks, { minDividendYield: 1 });
+    const results = engine.runCriteria(mockUniverse, { minDividendYield: 1 });
     expect(results).toHaveLength(2);
-    expect(results.map((s) => s.symbol)).toEqual(["TCS", "INFY"]);
+    expect(results.map((member) => member.symbol)).toEqual(["TCS", "INFY"]);
   });
 
-  it("filters by minimum ROE", () => {
+  it("applies Criteria minRoe", () => {
     const engine = new Screener();
-    const results = engine.runCriteria(mockStocks, { minRoe: 20 });
+    const results = engine.runCriteria(mockUniverse, { minRoe: 20 });
     expect(results).toHaveLength(2);
-    expect(results.map((s) => s.symbol)).toEqual(["TCS", "INFY"]);
+    expect(results.map((member) => member.symbol)).toEqual(["TCS", "INFY"]);
   });
 
-  it("filters by minimum revenue growth", () => {
+  it("applies Criteria minRevenueGrowth", () => {
     const engine = new Screener();
-    const results = engine.runCriteria(mockStocks, { minRevenueGrowth: 11 });
+    const results = engine.runCriteria(mockUniverse, { minRevenueGrowth: 11 });
     expect(results).toHaveLength(2);
-    expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "HDFCBANK"]);
+    expect(results.map((member) => member.symbol)).toEqual(["RELIANCE", "HDFCBANK"]);
   });
 
-  it("filters by maximum debt to equity", () => {
+  it("applies Criteria maxDebtToEquity", () => {
     const engine = new Screener();
-    const results = engine.runCriteria(mockStocks, { maxDebtToEquity: 0.3 });
+    const results = engine.runCriteria(mockUniverse, { maxDebtToEquity: 0.3 });
     expect(results).toHaveLength(3);
-    expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "TCS", "INFY"]);
+    expect(results.map((member) => member.symbol)).toEqual(["RELIANCE", "TCS", "INFY"]);
   });
 
-  it("combines multiple criteria", () => {
+  it("applies combined Criteria", () => {
     const engine = new Screener();
-    const results = engine.runCriteria(mockStocks, {
+    const results = engine.runCriteria(mockUniverse, {
       minMarketCap: 800000,
       maxPe: 30,
       minRoe: 15,
     });
     expect(results).toHaveLength(2);
-    expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "HDFCBANK"]);
+    expect(results.map((member) => member.symbol)).toEqual(["RELIANCE", "HDFCBANK"]);
   });
 
-  it("returns empty array when no stocks match", () => {
+  it("returns an empty array when no Universe members match", () => {
     const engine = new Screener();
-    const results = engine.runCriteria(mockStocks, { minMarketCap: 9999999 });
+    const results = engine.runCriteria(mockUniverse, { minMarketCap: 9999999 });
     expect(results).toHaveLength(0);
   });
 
   it("handles undefined optional fields gracefully", () => {
-    const stocksWithMissing: Fundamentals[] = [
+    const membersWithMissing: Fundamentals[] = [
       { symbol: "TEST1", marketCap: 100000, peRatio: undefined },
       { symbol: "TEST2", marketCap: 200000, peRatio: 15 },
     ];
     const engine = new Screener();
-    const results = engine.runCriteria(stocksWithMissing, { maxPe: 20 });
+    const results = engine.runCriteria(membersWithMissing, { maxPe: 20 });
     expect(results).toHaveLength(1);
     expect(results[0]?.symbol).toBe("TEST2");
   });
@@ -132,8 +132,8 @@ describe("Screener", () => {
 
 describe("Unified Screener module", () => {
   it("provides personality metadata via getPersonalities", () => {
-    const s = new Screener();
-    const personalities = s.getPersonalities();
+    const engine = new Screener();
+    const personalities = engine.getPersonalities();
     expect(personalities.length).toBeGreaterThanOrEqual(8);
     const buffett = personalities.find((p) => p.id === "buffett");
     expect(buffett).toBeDefined();
@@ -146,9 +146,9 @@ describe("Unified Screener module", () => {
   });
 
   it("runs criteria screening via runCriteria", () => {
-    const matched = screener.runCriteria(mockStocks, { minRoe: 20 });
+    const matched = screener.runCriteria(mockUniverse, { minRoe: 20 });
     expect(matched).toHaveLength(2);
-    expect(matched.map((m) => m.symbol)).toEqual(["TCS", "INFY"]);
+    expect(matched.map((member) => member.symbol)).toEqual(["TCS", "INFY"]);
   });
 
   it("runs a Personality run returning Candidates ranked by score descending", () => {
@@ -180,8 +180,8 @@ describe("Unified Screener module", () => {
   });
 
   it("summarizes all personality runs via runAllPersonalities", () => {
-    const summary = screener.runAllPersonalities(mockStocks);
-    expect(summary.total).toBe(mockStocks.length);
+    const summary = screener.runAllPersonalities(mockUniverse);
+    expect(summary.total).toBe(mockUniverse.length);
     expect(summary.personalities.length).toBeGreaterThanOrEqual(8);
     for (const run of summary.personalities) {
       expect(run.matches).toBe(run.candidates.length);
@@ -190,11 +190,11 @@ describe("Unified Screener module", () => {
   });
 
   it("returns a personality detail run or undefined for unknown ids", () => {
-    const detail = screener.runPersonalityDetail(mockStocks, "buffett");
+    const detail = screener.runPersonalityDetail(mockUniverse, "buffett");
     expect(detail?.id).toBe("buffett");
-    expect(detail?.total).toBe(mockStocks.length);
+    expect(detail?.total).toBe(mockUniverse.length);
     expect(Array.isArray(detail?.candidates)).toBe(true);
     expect("stocks" in (detail ?? {})).toBe(false);
-    expect(screener.runPersonalityDetail(mockStocks, "unknown-philosophy")).toBeUndefined();
+    expect(screener.runPersonalityDetail(mockUniverse, "unknown-philosophy")).toBeUndefined();
   });
 });

@@ -13,6 +13,11 @@ async function readJson(res: Response): Promise<Record<string, unknown>> {
   return (await res.json()) as Record<string, unknown>;
 }
 
+function expectCriteriaFundamentals(body: Record<string, unknown>): void {
+  expect(Array.isArray(body.fundamentals)).toBe(true);
+  expect(body.stocks).toBeUndefined();
+}
+
 let server: http.Server;
 let base = "";
 
@@ -207,22 +212,19 @@ describe("HTTP API", () => {
   it("GET /api/screen validates criteria and returns an array", async () => {
     const res = await fetch(`${base}/api/screen?minPe=10&maxPe=20`);
     expect(res.status).toBe(200);
-    const body = await readJson(res);
-    expect(Array.isArray(body.stocks)).toBe(true);
+    expectCriteriaFundamentals(await readJson(res));
   });
 
   it("GET /api/screener aliases /api/screen", async () => {
     const res = await fetch(`${base}/api/screener?minPe=10&maxPe=20`);
     expect(res.status).toBe(200);
-    const body = await readJson(res);
-    expect(Array.isArray(body.stocks)).toBe(true);
+    expectCriteriaFundamentals(await readJson(res));
   });
 
   it("GET /api/screen parses minRevenueGrowth parameter", async () => {
     const res = await fetch(`${base}/api/screen?minRevenueGrowth=15`);
     expect(res.status).toBe(200);
-    const body = await readJson(res);
-    expect(Array.isArray(body.stocks)).toBe(true);
+    expectCriteriaFundamentals(await readJson(res));
   });
 
   it("GET /api/ai returns available status", async () => {
