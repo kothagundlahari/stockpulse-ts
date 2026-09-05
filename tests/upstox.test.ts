@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UpstoxClient } from "../src/services/upstox.js";
@@ -77,7 +78,9 @@ describe("UpstoxClient", () => {
   it("placeOrder rejects an order when confirm is false", async () => {
     const post = vi.spyOn(axios, "post").mockResolvedValue({ data: { data: { order_id: "o9" } } });
     await expect(
-      client.placeOrder({ symbol: "TCS", qty: 5, side: "BUY", type: "MARKET", confirm: false }),
+      client.placeOrder(
+        fromAny({ symbol: "TCS", qty: 5, side: "BUY", type: "MARKET", confirm: false }),
+      ),
     ).rejects.toThrow("confirm");
     expect(post).not.toHaveBeenCalled();
   });

@@ -7,6 +7,11 @@ import type { Broker } from "../src/services/broker-types.js";
 import { DatabaseService } from "../src/services/database.js";
 import type { YahooFinanceService } from "../src/services/yahoo-finance.js";
 
+// res.json() yields `unknown`; narrow to a record so tests can read fields without `any`.
+async function readJson(res: Response): Promise<Record<string, unknown>> {
+  return (await res.json()) as Record<string, unknown>;
+}
+
 let server: http.Server;
 let base = "";
 
@@ -43,7 +48,7 @@ describe("HTTP API", () => {
   it("GET /api/broker reports auth state without a real client", async () => {
     const res = await fetch(`${base}/api/broker`);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(typeof body.authenticated).toBe("boolean");
   });
 
@@ -59,7 +64,7 @@ describe("HTTP API", () => {
       body: JSON.stringify({ symbol: "TCS", side: "BUY", qty: 5, type: "MARKET" }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toMatch(/confirm/i);
   });
 
@@ -76,7 +81,7 @@ describe("HTTP API", () => {
       }),
     });
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(typeof body.id).toBe("string");
     expect(body.id).toBe("mock-order");
   });
@@ -95,7 +100,7 @@ describe("HTTP API", () => {
       }),
     });
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(typeof body.id).toBe("string");
     expect(body.id).toBe("mock-order");
   });
@@ -114,7 +119,7 @@ describe("HTTP API", () => {
       }),
     });
     expect(resSide.status).toBe(400);
-    const bodySide = await resSide.json();
+    const bodySide = await readJson(resSide);
     expect(bodySide.error).toMatch(/side/i);
 
     // invalid type
@@ -130,7 +135,7 @@ describe("HTTP API", () => {
       }),
     });
     expect(resType.status).toBe(400);
-    const bodyType = await resType.json();
+    const bodyType = await readJson(resType);
     expect(bodyType.error).toMatch(/type/i);
 
     // invalid qty (non-integer, <= 0)
@@ -146,7 +151,7 @@ describe("HTTP API", () => {
       }),
     });
     expect(resQty.status).toBe(400);
-    const bodyQty = await resQty.json();
+    const bodyQty = await readJson(resQty);
     expect(bodyQty.error).toMatch(/qty/i);
 
     // missing limitPrice for LIMIT
@@ -162,7 +167,7 @@ describe("HTTP API", () => {
       }),
     });
     expect(resLimit1.status).toBe(400);
-    const bodyLimit1 = await resLimit1.json();
+    const bodyLimit1 = await readJson(resLimit1);
     expect(bodyLimit1.error).toMatch(/limitPrice/i);
 
     // non-positive limitPrice for LIMIT
@@ -179,7 +184,7 @@ describe("HTTP API", () => {
       }),
     });
     expect(resLimit2.status).toBe(400);
-    const bodyLimit2 = await resLimit2.json();
+    const bodyLimit2 = await readJson(resLimit2);
     expect(bodyLimit2.error).toMatch(/limitPrice/i);
   });
 
@@ -190,35 +195,35 @@ describe("HTTP API", () => {
       body: "null",
     });
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toMatch(/confirm/i);
   });
 
   it("GET /api/screen validates criteria and returns an array", async () => {
     const res = await fetch(`${base}/api/screen?minPe=10&maxPe=20`);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(Array.isArray(body.stocks)).toBe(true);
   });
 
   it("GET /api/screen parses minRevenueGrowth parameter", async () => {
     const res = await fetch(`${base}/api/screen?minRevenueGrowth=15`);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(Array.isArray(body.stocks)).toBe(true);
   });
 
   it("GET /api/ai returns available status", async () => {
     const res = await fetch(`${base}/api/ai`);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(typeof body.available).toBe("boolean");
   });
 
   it("GET /api/portfolio returns holdings list", async () => {
     const res = await fetch(`${base}/api/portfolio`);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(Array.isArray(body.holdings)).toBe(true);
     expect(typeof body.total).toBe("number");
   });
@@ -274,7 +279,10 @@ describe("HTTP API", () => {
     try {
       const res = await fetch(`${customBase}/api/portfolio`);
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = (await readJson(res)) as {
+        total: number;
+        holdings: Array<{ symbol: unknown; recommendation: Record<string, unknown> }>;
+      };
       expect(body.total).toBe(15000);
       expect(body.holdings).toHaveLength(1);
       const holding = body.holdings[0];
@@ -340,7 +348,9 @@ describe("HTTP API", () => {
     try {
       const res = await fetch(`${customBase}/api/portfolio`);
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = (await readJson(res)) as {
+        holdings: Array<{ symbol: unknown; recommendation: Record<string, unknown> }>;
+      };
       expect(body.holdings[0].symbol).toBe("TCS");
       expect(body.holdings[0].recommendation).toBeDefined();
       expect(mockYahoo.getFundamentals).not.toHaveBeenCalled();
@@ -356,7 +366,7 @@ describe("HTTP API", () => {
   it("GET /api/orders returns orders array", async () => {
     const res = await fetch(`${base}/api/orders`);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(Array.isArray(body.orders)).toBe(true);
   });
 
@@ -398,7 +408,7 @@ describe("HTTP API", () => {
     try {
       // Prior to auth, broker is unauthenticated
       const beforeRes = await fetch(`${customBase}/api/broker`);
-      const beforeBody = await beforeRes.json();
+      const beforeBody = await readJson(beforeRes);
       expect(beforeBody.authenticated).toBe(false);
 
       // Authenticate
@@ -408,12 +418,12 @@ describe("HTTP API", () => {
         body: JSON.stringify({ code: "valid-code" }),
       });
       expect(authRes.status).toBe(200);
-      const authBody = await authRes.json();
+      const authBody = await readJson(authRes);
       expect(authBody.ok).toBe(true);
 
       // After auth, GET /api/broker reflects updated authenticated client
       const afterRes = await fetch(`${customBase}/api/broker`);
-      const afterBody = await afterRes.json();
+      const afterBody = await readJson(afterRes);
       expect(afterBody.authenticated).toBe(true);
     } finally {
       customServer.close();
@@ -457,7 +467,7 @@ describe("HTTP API", () => {
       expect(connectedCode).toBe("test-auth-code");
 
       const brokerRes = await fetch(`${customBase}/api/broker`);
-      const brokerBody = await brokerRes.json();
+      const brokerBody = await readJson(brokerRes);
       expect(brokerBody.authenticated).toBe(true);
     } finally {
       customServer.close();
@@ -543,19 +553,19 @@ describe("HTTP API", () => {
 
     try {
       const beforeRes = await fetch(`${customBase}/api/broker`);
-      const beforeBody = await beforeRes.json();
+      const beforeBody = await readJson(beforeRes);
       expect(beforeBody.authenticated).toBe(true);
 
       const disRes = await fetch(`${customBase}/api/broker/disconnect`, {
         method: "POST",
       });
       expect(disRes.status).toBe(200);
-      const disBody = await disRes.json();
+      const disBody = await readJson(disRes);
       expect(disBody.ok).toBe(true);
       expect(disconnected).toBe(true);
 
       const afterRes = await fetch(`${customBase}/api/broker`);
-      const afterBody = await afterRes.json();
+      const afterBody = await readJson(afterRes);
       expect(afterBody.authenticated).toBe(false);
     } finally {
       customServer.close();
@@ -597,13 +607,13 @@ describe("HTTP API", () => {
     try {
       const res = await fetch(`${customBase}/api/portfolio`);
       expect(res.status).toBe(401);
-      const body = await res.json();
+      const body = await readJson(res);
       expect(body.expired).toBe(true);
       expect(body.error).toBe("Upstox session expired. Please re-authorize.");
       expect(disconnected).toBe(true);
 
       const brokerRes = await fetch(`${customBase}/api/broker`);
-      const brokerBody = await brokerRes.json();
+      const brokerBody = await readJson(brokerRes);
       expect(brokerBody.authenticated).toBe(false);
     } finally {
       customServer.close();
@@ -645,13 +655,13 @@ describe("HTTP API", () => {
     try {
       const res = await fetch(`${customBase}/api/orders`);
       expect(res.status).toBe(401);
-      const body = await res.json();
+      const body = await readJson(res);
       expect(body.expired).toBe(true);
       expect(body.error).toBe("Upstox session expired. Please re-authorize.");
       expect(disconnected).toBe(true);
 
       const brokerRes = await fetch(`${customBase}/api/broker`);
-      const brokerBody = await brokerRes.json();
+      const brokerBody = await readJson(brokerRes);
       expect(brokerBody.authenticated).toBe(false);
     } finally {
       customServer.close();
@@ -703,13 +713,13 @@ describe("HTTP API", () => {
         }),
       });
       expect(res.status).toBe(401);
-      const body = await res.json();
+      const body = await readJson(res);
       expect(body.expired).toBe(true);
       expect(body.error).toBe("Upstox session expired. Please re-authorize.");
       expect(disconnected).toBe(true);
 
       const brokerRes = await fetch(`${customBase}/api/broker`);
-      const brokerBody = await brokerRes.json();
+      const brokerBody = await readJson(brokerRes);
       expect(brokerBody.authenticated).toBe(false);
     } finally {
       customServer.close();
@@ -719,7 +729,10 @@ describe("HTTP API", () => {
   it("GET /api/personalities returns all personalities with match counts", async () => {
     const res = await fetch(`${base}/api/personalities`);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await readJson(res)) as {
+      total: number;
+      personalities: Array<{ id: string; name: string; stocks: unknown[] }>;
+    };
     expect(typeof body.total).toBe("number");
     expect(Array.isArray(body.personalities)).toBe(true);
     expect(body.personalities.length).toBe(8);
@@ -803,7 +816,7 @@ describe("HTTP API", () => {
   it("GET /api/personalities/:id returns a single personality or 404", async () => {
     const res = await fetch(`${base}/api/personalities/buffett`);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.id).toBe("buffett");
     expect(Array.isArray(body.stocks)).toBe(true);
 
@@ -828,7 +841,7 @@ describe("HTTP API", () => {
     try {
       const res = await fetch(`${customBase}/api/personalities`);
       expect(res.status).toBe(500);
-      const body = await res.json();
+      const body = await readJson(res);
       expect(body.error).toBe("Internal server error");
       expect(Array.isArray(body.personalities)).toBe(true);
       expect(body.personalities).toHaveLength(0);
@@ -861,7 +874,7 @@ describe("SSRF symbol restriction", () => {
         `${customBase}/api/quote?symbol=${encodeURIComponent("../../../etc")}`,
       );
       expect(quoteBad.status).toBe(400);
-      const quoteBadBody = await quoteBad.json();
+      const quoteBadBody = await readJson(quoteBad);
       expect(quoteBadBody.error).toMatch(/symbol/i);
       expect(getQuote).not.toHaveBeenCalled();
 
@@ -960,7 +973,7 @@ describe("OAuth callback state protection", () => {
         redirect: "manual",
       });
       expect(res.status).toBe(403);
-      const body = await res.json();
+      const body = await readJson(res);
       expect(body.error).toMatch(/state/i);
       expect(connected).toBe(false);
     } finally {
@@ -1050,7 +1063,7 @@ describe("HTTP security headers", () => {
     fs.rmSync(linkPath, { force: true });
     fs.symlinkSync("/etc/passwd", linkPath);
     try {
-      const rawGet = (pathname: string): Promise<http.ServerResponse> =>
+      const rawGet = (pathname: string): Promise<http.IncomingMessage> =>
         new Promise((resolve, reject) => {
           const req = http.get({ host: "127.0.0.1", port, path: pathname }, (res) => resolve(res));
           req.on("error", reject);
@@ -1079,7 +1092,7 @@ describe("request body cap", () => {
       body: JSON.stringify(big),
     });
     expect(res.status).toBe(413);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toMatch(/large|exceeds/i);
   });
 
@@ -1120,7 +1133,7 @@ describe("generic server errors", () => {
     try {
       const res = await fetch(`${customBase}/api/personalities`);
       expect(res.status).toBe(500);
-      const body = await res.json();
+      const body = await readJson(res);
       expect(body.error).toBe("Internal server error");
       expect(Array.isArray(body.personalities)).toBe(true);
       expect(body.personalities).toHaveLength(0);
@@ -1154,7 +1167,7 @@ describe("generic server errors", () => {
     try {
       const res = await fetch(`${customBase}/api/portfolio`);
       expect(res.status).toBe(500);
-      const body = await res.json();
+      const body = await readJson(res);
       expect(body.error).toBe("Internal server error");
       expect(body.expired).toBeUndefined();
     } finally {

@@ -5,14 +5,17 @@ TypeScript web dashboard for Indian stock research (StockPulse). `type: module`,
 ## Commands (use pnpm, not npm/yarn)
 
 ```bash
-pnpm check          # biome lint/format check + tsc --noEmit  ← run after changes
+pnpm check          # biome + tsc over src AND tests  ← run after changes
+pnpm typecheck:tests   # tests-only tsc (subset of check, faster)
 pnpm build          # tsc → dist/ (rootDir=src, so build output mirrors src/)
 pnpm test           # vitest run
 pnpm dev:server     # run dev server via tsx without opening browser (default port 8787)
 ```
 
 - There is no CLI — the web dashboard is the only interface. Rebuild (`pnpm build`) before testing `pnpm start:server`.
-- Note: `pnpm check` typechecks `src/` and lints `tests/`. It ignores `public/` (vanilla HTML/JS/CSS). Verify frontend changes carefully.
+- `pnpm check` runs biome over everything, typechecks `src/` (`tsc --noEmit`), and typechecks `tests/` via `tsconfig.test.json`. It ignores `public/` (vanilla HTML/JS/CSS). Verify frontend changes carefully.
+- `tests/` is typechecked via `tsconfig.test.json` because vitest is esbuild-based and does no type-check on its own. A husky `pre-push` runs the full `pnpm check` (which now includes tests) before sharing. Prefer `pnpm typecheck:tests` for a fast tests-only check.
+- Type feedback comes from `tsc` via `pnpm check` / `pnpm typecheck:tests`. This repo does **not** use an LSP (no `typescript-language-server`/`@vtsls`): the pi agent gets type info by shelling out to `tsc`, and VS Code's built-in `tsserver` handles editor squiggles. Don't add a language-server dependency.
 
 ## Architecture
 
