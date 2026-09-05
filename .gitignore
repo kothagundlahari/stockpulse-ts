@@ -35,3 +35,6 @@ certs/
 
 # Session exports
 session-*.md
+
+# Installed agent toolchain (tracked by skills-lock.json)
+.agents/
