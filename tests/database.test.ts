@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import SqliteDb from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseService } from "../src/services/database.js";
 
@@ -21,43 +22,22 @@ describe("DatabaseService", () => {
     }
   });
 
-  it("adds and retrieves journal entries", () => {
-    db.addJournalEntry({
-      id: "1",
-      symbol: "RELIANCE",
-      date: "2024-01-01T00:00:00Z",
-      action: "BUY",
-      price: 2500,
-      quantity: 10,
-      notes: "Test buy",
-    });
+  it("drops the legacy journal table during migration", () => {
+    db.close();
+    fs.unlinkSync(TEST_DB);
+    const legacyDb = new SqliteDb(TEST_DB);
+    legacyDb.exec("CREATE TABLE journal (id TEXT PRIMARY KEY, notes TEXT)");
+    legacyDb.prepare("INSERT INTO journal (id, notes) VALUES (?, ?)").run("1", "legacy");
+    legacyDb.close();
 
-    const entries = db.getJournalEntries("RELIANCE");
-    expect(entries).toHaveLength(1);
-    expect(entries[0].symbol).toBe("RELIANCE");
-    expect(entries[0].price).toBe(2500);
-  });
+    db = new DatabaseService(TEST_DB);
+    const migratedDb = new SqliteDb(TEST_DB);
+    const journalTable = migratedDb
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journal'")
+      .get();
+    migratedDb.close();
 
-  it("returns all entries when no symbol specified", () => {
-    db.addJournalEntry({
-      id: "1",
-      symbol: "RELIANCE",
-      date: "2024-01-01T00:00:00Z",
-      action: "BUY",
-      price: 2500,
-      quantity: 10,
-    });
-    db.addJournalEntry({
-      id: "2",
-      symbol: "TCS",
-      date: "2024-01-02T00:00:00Z",
-      action: "BUY",
-      price: 3500,
-      quantity: 5,
-    });
-
-    const entries = db.getJournalEntries();
-    expect(entries).toHaveLength(2);
+    expect(journalTable).toBeUndefined();
   });
 });
 

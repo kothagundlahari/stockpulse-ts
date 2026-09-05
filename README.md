@@ -43,7 +43,6 @@ node dist/server.js   # run the built server (after pnpm build)
 | Live quotes & charts | ✅ | Yahoo Finance chart endpoint, NSE symbols |
 | Backtesting | ✅ | SMA crossover / buy-and-hold, no look-ahead bias |
 | Holding recommendations | ✅ | Buy/hold/sell guidance for existing positions |
-| Trade journal | ✅ | SQLite persistence |
 | News | ✅ | Google News + MoneyControl RSS feeds |
 | AI insights | ✅ | Optional local Ollama inference (no cloud calls) |
 | Live trading | ✅ | Upstox OAuth auth + quote/orders/portfolio/trade via the Upstox broker client |
@@ -57,7 +56,6 @@ The server exposes a JSON API alongside the dashboard (all under `http://localho
 - `GET /api/screen?<criteria>` — run the screener with optional filters
 - `GET /api/quote?symbol=` — live quote
 - `GET /api/backtest?symbol=&strategy=` — run a backtest
-- `GET /api/journal` — trade journal entries
 - `GET /api/news` — aggregated news feed
 - `GET /api/portfolio` — live portfolio from the broker
 - `GET /api/orders` — recent orders from the broker
@@ -77,7 +75,6 @@ The server exposes a JSON API alongside the dashboard (all under `http://localho
 - [Personality Screeners](docs/personalities.md)
 - [Backtesting](docs/backtesting.md)
 - [Web Dashboard](docs/dashboard.md)
-- [Trade Journal](docs/trade-journal.md)
 - [AI Insights](docs/ai-insights.md)
 - [Live Trading (Upstox)](docs/upstox-trading.md)
 

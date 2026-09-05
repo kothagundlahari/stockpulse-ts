@@ -28,7 +28,7 @@ StockPulse is deliberately simple. It avoids the multi-layered service/view-mode
 
 ### 1. Web Dashboard (`public/`)
 - Plain HTML/CSS/JS served by the Node server — no build step, no framework.
-- Tabs: Quotes, Personalities, Backtest, Journal, News, Portfolio.
+- Tabs: Quotes, Personalities, Backtest, News, Portfolio.
 - The Portfolio tab shows holdings with live P&L, per-holding recommendations, a trade panel with confirmation modal, and trade history.
 
 ### 2. Server (`src/server.ts`)
@@ -52,7 +52,7 @@ Everything that talks to the outside world:
 - **`broker-types.ts`** — shared types: `Broker`, `Holding`, `Position`, `Order`, `PlaceOrderParams`
 - **`ollama.ts`** — local AI chat completions (optional)
 - **`news.ts`** — RSS fetching/parsing
-- **`database.ts`** — SQLite persistence (journal, screeners, broker tokens)
+- **`database.ts`** — SQLite persistence (broker tokens and fundamentals cache)
 
 Services are thin wrappers around external APIs. Validation happens at the boundary (see below).
 

@@ -26,6 +26,11 @@ describe("HTTP API", () => {
     expect(typeof body.authenticated).toBe("boolean");
   });
 
+  it("GET /api/journal is removed", async () => {
+    const res = await fetch(`${base}/api/journal`);
+    expect(res.status).toBe(404);
+  });
+
   it("POST /api/trade rejects missing confirm", async () => {
     const res = await fetch(`${base}/api/trade`, {
       method: "POST",
