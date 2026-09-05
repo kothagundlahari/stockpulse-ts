@@ -14,3 +14,10 @@ describe("removed journal frontend and API surfaces", () => {
     expect(appJs).not.toContain("loadJournal");
   });
 });
+
+describe("frontend XSS hardening surfaces", () => {
+  it("app.js contains no inline event handlers and uses the escape helper", () => {
+    expect(appJs).not.toContain("onclick=");
+    expect(appJs).toContain("escapeHtml");
+  });
+});

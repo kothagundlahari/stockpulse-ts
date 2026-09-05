@@ -7,6 +7,18 @@ const formatMC = (n) => {
 };
 const num = (n) => (n == null || Number.isNaN(n) ? "—" : `${n}`);
 
+const escapeHtml = (s) =>
+  String(s ?? "").replace(/[&<>"'`]/g, (ch) =>
+    ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+      "`": "&#96;",
+    })[ch],
+  );
+
 // Tab switching
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -51,7 +63,7 @@ document.getElementById("quote-fetch").addEventListener("click", async () => {
         <div class="metric"><div class="label">Volume</div><div class="value">${Number(q.volume).toLocaleString("en-IN")}</div></div>
       </div>`;
   } catch (e) {
-    el.innerHTML = `<p class="error">${e.message}</p>`;
+    el.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
   }
 });
 
@@ -149,8 +161,8 @@ function renderPersonalityDetail(active, total) {
   detailPane.innerHTML = `
     <div class="personality-detail-header">
       <div>
-        <h3>${active.name}</h3>
-        <p class="desc">${active.description}</p>
+        <h3>${escapeHtml(active.name)}</h3>
+        <p class="desc">${escapeHtml(active.description)}</p>
       </div>
       <div class="personality-detail-controls">
         ${
@@ -160,7 +172,7 @@ function renderPersonalityDetail(active, total) {
                 ${sectors
                   .map(
                     (sec) =>
-                      `<option value="${sec}"${personalityTableState.sectorFilter === sec ? " selected" : ""}>${sec} (${sectorCounts.get(sec)})</option>`,
+                      `<option value="${escapeHtml(sec)}"${personalityTableState.sectorFilter === sec ? " selected" : ""}>${escapeHtml(sec)} (${sectorCounts.get(sec)})</option>`,
                   )
                   .join("")}
               </select>`
@@ -195,15 +207,15 @@ function renderPersonalityDetail(active, total) {
                           (s) =>
                             `<tr>
                               <td>
-                                <button type="button" class="personality-symbol-btn" data-symbol="${s.symbol}" title="Research ${s.symbol} in Perplexity Finance">
-                                  ${s.symbol}
+                                <button type="button" class="personality-symbol-btn" data-symbol="${escapeHtml(s.symbol)}" title="Research ${escapeHtml(s.symbol)} in Perplexity Finance">
+                                  ${escapeHtml(s.symbol)}
                                 </button>
                               </td>
                               <td>${formatMC(s.marketCap)}</td>
                               <td>${num(s.peRatio)}</td>
                               <td class="${typeof s.roe === "number" && s.roe >= 15 ? "positive" : ""}">${typeof s.roe === "number" && !Number.isNaN(s.roe) ? `${s.roe.toFixed(1)}%` : "—"}</td>
                               <td>${typeof s.operatingMargin === "number" && !Number.isNaN(s.operatingMargin) ? `${s.operatingMargin.toFixed(1)}%` : "—"}</td>
-                              <td>${s.sector?.trim() || "Other"}</td>
+                              <td>${escapeHtml(s.sector?.trim() || "Other")}</td>
                               <td>
                                 ${
                                   typeof s.score === "number"
@@ -212,14 +224,14 @@ function renderPersonalityDetail(active, total) {
                                 }
                               </td>
                               <td>
-                                <button type="button" class="btn btn-sm personality-buy-btn" data-symbol="${s.symbol}">
+                                <button type="button" class="btn btn-sm personality-buy-btn" data-symbol="${escapeHtml(s.symbol)}">
                                   Buy
                                 </button>
                               </td>
                             </tr>`,
                         )
                         .join("")
-                    : `<tr><td colspan="8" class="muted" style="text-align:center; padding: 1.5rem;">No stocks found in ${personalityTableState.sectorFilter} sector.</td></tr>`
+                    : `<tr><td colspan="8" class="muted" style="text-align:center; padding: 1.5rem;">No stocks found in ${escapeHtml(personalityTableState.sectorFilter)} sector.</td></tr>`
                 }
               </tbody>
             </table>
@@ -329,8 +341,8 @@ function renderPersonalities() {
               (p) => `
             <button class="personality-item ${p.id === active.id ? "active" : ""}" data-id="${p.id}" type="button" role="tab" aria-selected="${p.id === active.id ? "true" : "false"}">
               <div class="personality-item-info">
-                <span class="personality-item-name">${p.name}</span>
-                <span class="personality-item-desc">${p.description}</span>
+                <span class="personality-item-name">${escapeHtml(p.name)}</span>
+                <span class="personality-item-desc">${escapeHtml(p.description)}</span>
               </div>
               <span class="personality-count">${p.matches}</span>
             </button>`,
@@ -377,7 +389,7 @@ async function loadPersonalities() {
     personalitiesState.data = data;
     renderPersonalities();
   } catch (e) {
-    el.innerHTML = `<p class="error">${e.message}</p><button class="btn" style="margin-top:0.5rem;" onclick="loadPersonalities()">Retry</button>`;
+    el.innerHTML = `<p class="error">${escapeHtml(e.message)}</p><button class="btn" style="margin-top:0.5rem;" data-action="retry-personalities">Retry</button>`;
   } finally {
     personalitiesState.loading = false;
   }
@@ -396,7 +408,7 @@ document.getElementById("bt-fetch").addEventListener("click", async () => {
     const r = data.result;
     const retCls = r.totalReturn >= 0 ? "positive" : "negative";
     el.innerHTML = `
-      <h3>${symbol} — ${range} (SMA Crossover)</h3>
+      <h3>${escapeHtml(symbol)} — ${range} (SMA Crossover)</h3>
       <div class="metric-grid">
         <div class="metric"><div class="label">Initial</div><div class="value">${money(r.initialCapital)}</div></div>
         <div class="metric"><div class="label">Final</div><div class="value">${money(r.finalCapital)}</div></div>
@@ -407,7 +419,7 @@ document.getElementById("bt-fetch").addEventListener("click", async () => {
       </div>
       ${r.trades.length ? renderTrades(r.trades) : "<p>No trades executed.</p>"}`;
   } catch (e) {
-    el.innerHTML = `<p class="error">${e.message}</p>`;
+    el.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
   }
 });
 
@@ -416,7 +428,7 @@ function renderTrades(trades) {
     ${trades
       .map((t, i) => {
         const cls = t.pnl >= 0 ? "positive" : "negative";
-        return `<tr><td>${t.entryDate}</td><td>${t.exitDate}</td><td class="${cls}">${t.pnl >= 0 ? "+" : ""}${money(t.pnl)}</td></tr>`;
+        return `<tr><td>${escapeHtml(t.entryDate)}</td><td>${escapeHtml(t.exitDate)}</td><td class="${cls}">${t.pnl >= 0 ? "+" : ""}${money(t.pnl)}</td></tr>`;
       })
       .join("")}
   </tbody></table>`;
@@ -442,11 +454,11 @@ document.getElementById("news-fetch").addEventListener("click", async () => {
     el.innerHTML = data
       .map(
         (n) =>
-          `<div class="news-item"><strong>${n.title}</strong><div class="meta">${n.source} · ${n.pubDate}</div></div>`,
+          `<div class="news-item"><strong>${escapeHtml(n.title)}</strong><div class="meta">${escapeHtml(n.source)} · ${escapeHtml(n.pubDate)}</div></div>`,
       )
       .join("");
   } catch (e) {
-    el.innerHTML = `<p class="error">${e.message}</p>`;
+    el.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
   }
 });
 
@@ -455,7 +467,7 @@ function showBrokerNotice(type, text) {
   const noticeEl = document.getElementById("broker-notice");
   if (!noticeEl) return;
   noticeEl.className = `broker-banner ${type}`;
-  noticeEl.innerHTML = '<span class="broker-notice-text"></span><button type="button" class="btn btn-sm" style="margin-left:1rem;" onclick="this.parentElement.classList.add(\'hidden\')">✕</button>';
+  noticeEl.innerHTML = '<span class="broker-notice-text"></span><button type="button" class="btn btn-sm" style="margin-left:1rem;" data-action="dismiss-notice">✕</button>';
   const span = noticeEl.querySelector(".broker-notice-text");
   if (span) span.textContent = text;
   noticeEl.classList.remove("hidden");
@@ -502,10 +514,10 @@ async function loadBrokerStatus() {
         }
       });
     } else {
-      el.innerHTML = `<span class="negative">○ Not connected</span> <button class="btn" onclick="window.open('${authUrl}', '_self')">Authorize</button>`;
+      el.innerHTML = `<span class="negative">○ Not connected</span> <button class="btn" data-action="authorize" data-auth-url="${escapeHtml(authUrl)}">Authorize</button>`;
     }
   } catch (e) {
-    el.innerHTML = `<span class="error">${e.message}</span>`;
+    el.innerHTML = `<span class="error">${escapeHtml(e.message)}</span>`;
   }
 }
 
@@ -524,7 +536,7 @@ async function loadPortfolio() {
           const authRes = await fetch("/api/broker").catch(() => null);
           const b = authRes ? await authRes.json() : {};
           const authUrl = b.authUrl || "/api/broker";
-          brokerEl.innerHTML = `<span class="negative">○ Session expired</span> <button class="btn" onclick="window.open('${authUrl}', '_self')">Re-authorize</button>`;
+          brokerEl.innerHTML = `<span class="negative">○ Session expired</span> <button class="btn" data-action="authorize" data-auth-url="${escapeHtml(authUrl)}">Re-authorize</button>`;
         }
       }
       throw new Error(errData?.error || "Failed to load portfolio");
@@ -577,7 +589,7 @@ async function loadPortfolio() {
 
         return `<tr>
           <td class="symbol-col">
-            <button type="button" class="symbol-btn" data-symbol="${h.symbol}" title="Click to trade ${h.symbol}">${h.symbol}</button>
+            <button type="button" class="symbol-btn" data-symbol="${escapeHtml(h.symbol)}" title="Click to trade ${escapeHtml(h.symbol)}">${escapeHtml(h.symbol)}</button>
           </td>
           <td><span class="badge ${recCls}">${action.replace("_", " ")}</span></td>
           <td class="num-col">${h.quantity}</td>
@@ -587,7 +599,7 @@ async function loadPortfolio() {
           <td class="num-col ${pnlCls}">${h.pnl >= 0 ? "+" : ""}${money(h.pnl)} (${pnlPercentFormatted}%)</td>
           <td class="num-col">${money(h.currentValue)}</td>
           <td class="reasons-col">
-            ${reasons ? `<details><summary>Rationale</summary><div class="reasons-text">${reasons}</div></details>` : "—"}
+            ${reasons ? `<details><summary>Rationale</summary><div class="reasons-text">${escapeHtml(reasons)}</div></details>` : "—"}
           </td>
         </tr>`;
       })
@@ -626,7 +638,7 @@ async function loadPortfolio() {
       });
     });
   } catch (e) {
-    el.innerHTML = `<p class="error">${e.message}</p>`;
+    el.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
   }
 }
 
@@ -724,7 +736,7 @@ async function loadOrders() {
           const authRes = await fetch("/api/broker").catch(() => null);
           const b = authRes ? await authRes.json() : {};
           const authUrl = b.authUrl || "/api/broker";
-          brokerEl.innerHTML = `<span class="negative">○ Session expired</span> <button class="btn" onclick="window.open('${authUrl}', '_self')">Re-authorize</button>`;
+          brokerEl.innerHTML = `<span class="negative">○ Session expired</span> <button class="btn" data-action="authorize" data-auth-url="${escapeHtml(authUrl)}">Re-authorize</button>`;
         }
       }
       throw new Error(errData?.error || "Failed to load orders");
@@ -737,11 +749,11 @@ async function loadOrders() {
     el.innerHTML = data.orders
       .map(
         (o) =>
-          `<div class="entry"><strong>${o.symbol}</strong> <span class="${o.side === "BUY" ? "positive" : "negative"}">${o.side}</span> ${o.qty} @ ${money(o.price)} · ${o.status}</div>`,
+          `<div class="entry"><strong>${escapeHtml(o.symbol)}</strong> <span class="${o.side === "BUY" ? "positive" : "negative"}">${escapeHtml(o.side)}</span> ${o.qty} @ ${money(o.price)} · ${escapeHtml(o.status)}</div>`,
       )
       .join("");
   } catch (e) {
-    el.innerHTML = `<p class="error">${e.message}</p>`;
+    el.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
   }
 }
 
@@ -760,6 +772,20 @@ async function loadAiAvailability() {
     el.innerHTML = '<p class="muted">Ollama not detected — AI deep-dive disabled.</p>';
   }
 }
+
+document.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-action]");
+  if (!target) return;
+  const action = target.dataset.action;
+  if (action === "retry-personalities") {
+    loadPersonalities();
+  } else if (action === "dismiss-notice") {
+    const banner = target.closest(".broker-banner");
+    if (banner) banner.classList.add("hidden");
+  } else if (action === "authorize") {
+    window.open(target.dataset.authUrl, "_self");
+  }
+});
 
 // Startup
 loadPersonalities();
