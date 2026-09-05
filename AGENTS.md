@@ -9,7 +9,7 @@ pnpm check          # biome + tsc over src AND tests  ← run after changes
 pnpm typecheck:tests   # tests-only tsc (subset of check, faster)
 pnpm build          # tsc → dist/ (rootDir=src, so build output mirrors src/)
 pnpm test           # vitest run
-pnpm dev:server     # run dev server via tsx without opening browser (default port 8787)
+pnpm dev:server     # run dev server via tsx without opening browser (macOS needs mkcert certs/; default port 8787)
 ```
 
 - There is no CLI — the web dashboard is the only interface. Rebuild (`pnpm build`) before testing `pnpm start:server`.

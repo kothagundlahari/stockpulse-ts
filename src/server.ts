@@ -6,6 +6,13 @@ import https from "node:https";
 import path from "node:path";
 import tls from "node:tls";
 import { getNifty500Fundamentals } from "./data/nifty500.js";
+import {
+  browserOpenCommand,
+  localTlsCertPaths,
+  localTlsCertsPresent,
+  macosMkcertHelp,
+  macosRequiresLocalTls,
+} from "./dev-launch.js";
 import { screener } from "./engines/screener.js";
 import { connectUpstox, disconnectUpstox, getBroker } from "./services/broker.js";
 import type { Broker } from "./services/broker-types.js";
@@ -586,13 +593,10 @@ export async function createServer(opts: ServerOptions = {}): Promise<http.Serve
 
   const handler = wrap((req, res) => router(req, res, deps));
 
-  const certPath = path.join(process.cwd(), "certs", "localhost.pem");
-  const keyPath = path.join(process.cwd(), "certs", "localhost-key.pem");
-  const shouldHttps =
-    opts.https ??
-    (process.env.NODE_ENV !== "test" && fs.existsSync(certPath) && fs.existsSync(keyPath));
+  const { certPath, keyPath } = localTlsCertPaths();
+  const shouldHttps = opts.https ?? (process.env.NODE_ENV !== "test" && localTlsCertsPresent());
 
-  if (shouldHttps && fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+  if (shouldHttps && localTlsCertsPresent()) {
     return https.createServer(
       {
         cert: fs.readFileSync(certPath),
@@ -609,6 +613,10 @@ const isMain =
   (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js"));
 
 if (isMain) {
+  if (macosRequiresLocalTls(process.platform) && !localTlsCertsPresent()) {
+    console.error(macosMkcertHelp());
+    process.exit(1);
+  }
   const s = await createServer({ port: PORT, realBroker: true });
   const isHttps = s instanceof https.Server;
   s.listen(PORT, HOST, () => {
@@ -616,13 +624,7 @@ if (isMain) {
     const url = `${proto}://localhost:${PORT}`;
     console.log(`StockPulse dashboard: ${url}`);
     if (process.env.OPEN_BROWSER === "1") {
-      const cmd =
-        process.platform === "darwin"
-          ? "open"
-          : process.platform === "win32"
-            ? "start"
-            : "xdg-open";
-      const args = process.platform === "win32" ? [] : [url];
+      const { cmd, args } = browserOpenCommand(process.platform, url);
       spawn(cmd, args, { stdio: "ignore", detached: true }).unref();
     }
   });

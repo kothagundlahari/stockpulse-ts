@@ -10,7 +10,7 @@ StockPulse is deliberately simple. It avoids the multi-layered service/view-mode
 │   HTML / CSS / JS — no build step           │
 ├─────────────────────────────────────────────┤
 │            Server (src/server.ts)           │
-│   HTTP transport: routing, JSON, static     │
+│   HTTP/HTTPS: routing, JSON, static         │
 ├─────────────────────────────────────────────┤
 │               Engines (pure logic)          │
 │   screener │ holding-recommendation         │

@@ -6,7 +6,7 @@
 
 The original project was a native macOS SwiftUI app. This rebuild:
 
-- **Is a web dashboard, not a CLI** — the browser is the only interface; a local HTTP server serves the UI and a JSON API
+- **Is a web dashboard, not a CLI** — the browser is the only interface; a local server serves the UI and a JSON API
 - **Is cross-platform** — runs anywhere Node.js does, not just macOS
 - **Uses TDD** — every engine and service is covered by tests written before implementation
 - **Applies practical standards** — Zod validation at every external boundary, strict TypeScript with no `any`, no unnecessary abstraction
@@ -17,10 +17,10 @@ The original project was a native macOS SwiftUI app. This rebuild:
 # Install (better-sqlite3 + esbuild need allowBuilds)
 pnpm install
 
-# Run the web dashboard (opens in the browser; PORT env overrides, default 8787)
+# Run the web dashboard (macOS: HTTPS + Safari; needs certs/ from mkcert)
 pnpm dev
 
-# Or run it headless, then open http://localhost:8787 manually
+# Or run it headless, then open https://localhost:8787 in Safari
 pnpm dev:server
 ```
 
@@ -48,7 +48,7 @@ node dist/server.js   # run the built server (after pnpm build)
 
 ## API
 
-The server exposes a JSON API alongside the dashboard (all under `http://localhost:8787`):
+The server exposes a JSON API alongside the dashboard (local default `https://localhost:8787` on macOS):
 
 - `GET /api/personalities` — Personality metadata, match counts, Candidates
 - `GET /api/personalities/:slug` — one Personality run (`candidates` ranked by score)

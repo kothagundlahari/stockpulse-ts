@@ -7,6 +7,7 @@ This guide walks you through installing and running StockPulse for the first tim
 - **Node.js 20+** (see `package.json` `engines`)
 - **pnpm** (package manager — install via `npm install -g pnpm` or Corepack)
 - Optional: **Ollama** for AI insights, **Upstox developer account** for live Orders
+- **macOS:** [mkcert](https://github.com/FiloSottile/mkcert) so Safari can load `https://localhost:8787` (the server will not start without local certs)
 
 ## Installation
 
@@ -28,14 +29,25 @@ This runs the TDD test suite. All tests should pass.
 
 StockPulse is a UI-first web dashboard. The web server is the only entry point.
 
+On macOS, Safari will not load `http://localhost`. Create trusted certs once (do not commit `certs/`):
+
 ```bash
-pnpm dev          # starts the server and opens http://localhost:8787
-pnpm dev:server   # starts the server without opening a browser
+brew install mkcert
+mkcert -install
+mkdir -p certs
+mkcert -key-file certs/localhost-key.pem -cert-file certs/localhost.pem localhost
+```
+
+Then:
+
+```bash
+pnpm dev          # HTTPS at https://localhost:8787 and opens Safari
+pnpm dev:server   # same server, no browser
 ```
 
 `PORT` is configurable via the `PORT` environment variable (default `8787`).
 
-Once running, the dashboard opens in your browser with tabs for Quotes, Personalities, News, and Portfolio.
+Once running, the dashboard opens in Safari on macOS with tabs for Quotes, Personalities, News, and Portfolio.
 
 ### Production mode
 
@@ -72,6 +84,9 @@ Live Orders require an Upstox developer account. See [Upstox Trading](upstox-tra
 - The `data/` folder is gitignored — it holds your local cache and Broker session.
 
 ## Troubleshooting
+
+**Server prints mkcert instructions and exits (macOS)**
+Safari will not load HTTP. Run the mkcert commands above, then start the server again.
 
 **Quotes or news return no data**
 The Yahoo Finance or news endpoint may be rate-limiting. Wait a moment and retry. Check your internet connection.

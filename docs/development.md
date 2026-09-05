@@ -35,6 +35,7 @@ This guarantees the engines and services are correct by construction and safe to
 - `tests/database.test.ts` — SQLite persistence and freshness (temp DB)
 - `tests/yahoo-finance.test.ts` — API client (mocked axios)
 - `tests/server.test.ts` — HTTP transport (JSON keys, status codes, headers)
+- `tests/dev-launch.test.ts` — macOS Safari open + mkcert TLS gate
 - `tests/broker-types.test.ts` — Broker / Holding / Order request shapes
 - `tests/frontend-surfaces.test.ts` — dashboard surface contracts
 
@@ -86,7 +87,7 @@ Run `pnpm check` after making changes — it catches both lint and type errors w
 |---|---|
 | `UPSTOX_API_KEY` | Upstox OAuth app key |
 | `UPSTOX_API_SECRET` | Upstox OAuth app secret |
-| `UPSTOX_REDIRECT_URI` | OAuth redirect URI (default: `http://localhost:8787/callback`) |
+| `UPSTOX_REDIRECT_URI` | OAuth redirect URI (default: `https://localhost:8787/callback`) |
 | `PORT` | Server port (default `8787`) |
 | `HOST` | Bind address (default `127.0.0.1`) |
 

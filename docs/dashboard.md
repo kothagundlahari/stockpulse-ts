@@ -1,16 +1,16 @@
 # Local Web Dashboard
 
-StockPulse is a UI-first web dashboard. It is a zero-dependency Node HTTP server (`src/server.ts`) that serves static assets from `public/` and a JSON API that reuses the existing services and engines. The web dashboard is the only interface — there is no CLI.
+StockPulse is a UI-first web dashboard. It is a zero-dependency Node `http`/`https` server (`src/server.ts`) that serves static assets from `public/` and a JSON API that reuses the existing services and engines. On macOS it requires mkcert TLS and opens Safari at `https://localhost:8787`. The web dashboard is the only interface — there is no CLI.
 
 ## Starting it
 
 ```sh
-pnpm dev             # dev with auto-open browser -> http://localhost:8787
-pnpm dev:server      # dev without auto-open  -> http://localhost:8787
+pnpm dev             # macOS: HTTPS + Safari at https://localhost:8787 (needs mkcert files in certs/)
+pnpm dev:server      # same server, no browser
 pnpm start:server    # prod: node dist/server.js (run `pnpm build` first)
 ```
 
-`pnpm dev` opens the dashboard in your default browser automatically. To launch the server without opening a browser, use `pnpm dev:server` or `pnpm start:server`.
+`pnpm dev` on macOS serves HTTPS and opens Safari. Use `pnpm dev:server` if you do not want the browser to open.
 
 `PORT` is configurable via the `PORT` environment variable (default `8787`).
 
@@ -67,7 +67,7 @@ The `POST /api/trade` endpoint requires `confirm: true` in the request body. If 
 
 ## How it's put together
 
-- `src/server.ts` — HTTP transport: routing, JSON handling, static files.
+- `src/server.ts` — HTTP/HTTPS transport: routing, JSON handling, static files.
 - `public/index.html`, `public/style.css`, `public/app.js` — the browser front end (plain HTML/CSS/JS, no build step).
 - Handlers delegate to `loadPortfolio`, `Screener`, `YahooFinanceService`, and `DatabaseService`.
 

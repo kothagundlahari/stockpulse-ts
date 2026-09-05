@@ -133,11 +133,13 @@ export class UpstoxClient implements Broker {
   }
 }
 
+export const DEFAULT_UPSTOX_REDIRECT_URI = "https://localhost:8787/callback";
+
 export function createUpstoxClient(accessToken?: string): UpstoxClient {
   return new UpstoxClient({
     apiKey: process.env.UPSTOX_API_KEY ?? "",
     apiSecret: process.env.UPSTOX_API_SECRET ?? "",
-    redirectUri: process.env.UPSTOX_REDIRECT_URI ?? "http://localhost:8787/callback",
+    redirectUri: process.env.UPSTOX_REDIRECT_URI ?? DEFAULT_UPSTOX_REDIRECT_URI,
     accessToken,
   });
 }

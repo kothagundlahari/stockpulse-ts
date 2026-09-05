@@ -1,7 +1,11 @@
 import { fromAny } from "@total-typescript/shoehorn";
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { UpstoxClient } from "../src/services/upstox.js";
+import {
+  createUpstoxClient,
+  DEFAULT_UPSTOX_REDIRECT_URI,
+  UpstoxClient,
+} from "../src/services/upstox.js";
 
 describe("UpstoxClient", () => {
   let client: UpstoxClient;
@@ -133,5 +137,21 @@ describe("UpstoxClient", () => {
 
   it("getAuthUrl omits state when undefined", () => {
     expect(client.getAuthUrl()).not.toContain("state=");
+  });
+
+  it("createUpstoxClient defaults the redirect URI to local HTTPS", () => {
+    const prev = process.env.UPSTOX_REDIRECT_URI;
+    delete process.env.UPSTOX_REDIRECT_URI;
+    try {
+      expect(DEFAULT_UPSTOX_REDIRECT_URI).toBe("https://localhost:8787/callback");
+      const url = createUpstoxClient().getAuthUrl();
+      expect(url).toContain(encodeURIComponent(DEFAULT_UPSTOX_REDIRECT_URI));
+    } finally {
+      if (prev === undefined) {
+        delete process.env.UPSTOX_REDIRECT_URI;
+      } else {
+        process.env.UPSTOX_REDIRECT_URI = prev;
+      }
+    }
   });
 });

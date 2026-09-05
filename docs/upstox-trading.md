@@ -8,7 +8,7 @@ StockPulse connects to **Upstox** as the live Broker adapter via the Upstox Deve
 
 1. Create an Upstox developer account at [upstox.com/developer](https://upstox.com/developer).
 2. Create a new app to obtain your **API Key** and **API Secret**.
-3. Set a **Redirect URI** (use `http://localhost:8787/callback` for local development).
+3. Set a **Redirect URI** (use `https://localhost:8787/callback` for local development; it must match the dashboard scheme).
 
 ## Environment variables
 
@@ -16,7 +16,7 @@ StockPulse connects to **Upstox** as the live Broker adapter via the Upstox Deve
 |---|---|
 | `UPSTOX_API_KEY` | OAuth app key from Upstox developer portal |
 | `UPSTOX_API_SECRET` | OAuth app secret |
-| `UPSTOX_REDIRECT_URI` | OAuth redirect URI (default: `http://localhost:8787/callback`) |
+| `UPSTOX_REDIRECT_URI` | OAuth redirect URI (default: `https://localhost:8787/callback`) |
 
 Set these in a `.env` file (gitignored) or export them in your shell. Never commit them.
 
@@ -34,7 +34,7 @@ Log in to your Upstox account and approve access permissions for the application
 
 ### Step 3 — Automatic redirect & token exchange
 
-Upstox automatically redirects back to `http://localhost:8787/callback?code=...`. StockPulse's server handles this route by exchanging the authorization code for an access token, persisting it in the local SQLite database (`broker_tokens` table), and redirecting the browser back to `/?broker=connected` with a success notification. Manual code pasting is no longer required. (The manual endpoint `POST /api/broker/auth` remains available if needed.)
+Upstox automatically redirects back to `https://localhost:8787/callback?code=...`. StockPulse's server handles this route by exchanging the authorization code for an access token, persisting it in the local SQLite database (`broker_tokens` table), and redirecting the browser back to `/?broker=connected` with a success notification. Manual code pasting is no longer required. (The manual endpoint `POST /api/broker/auth` remains available if needed.)
 
 ## Server endpoints
 
