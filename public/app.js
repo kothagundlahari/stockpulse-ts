@@ -117,9 +117,9 @@ function renderPersonalityDetail(active, total) {
 
   personalityTableState.activePersonalityId = active.id;
 
-  const stocks = active.stocks || [];
+  const candidates = active.candidates || [];
   const sectorCounts = new Map();
-  for (const s of stocks) {
+  for (const s of candidates) {
     const sec = s.sector?.trim() || "Other";
     sectorCounts.set(sec, (sectorCounts.get(sec) || 0) + 1);
   }
@@ -129,15 +129,15 @@ function renderPersonalityDetail(active, total) {
     personalityTableState.sectorFilter = "ALL";
   }
 
-  const filteredStocks =
+  const filteredCandidates =
     personalityTableState.sectorFilter === "ALL"
-      ? [...stocks]
-      : stocks.filter((s) => (s.sector?.trim() || "Other") === personalityTableState.sectorFilter);
+      ? [...candidates]
+      : candidates.filter((s) => (s.sector?.trim() || "Other") === personalityTableState.sectorFilter);
 
   const { sortColumn, sortDirection } = personalityTableState;
   const dir = sortDirection === "asc" ? 1 : -1;
 
-  filteredStocks.sort((a, b) => {
+  filteredCandidates.sort((a, b) => {
     if (sortColumn === "symbol" || sortColumn === "sector") {
       const aVal = (a[sortColumn] ?? "").toString();
       const bVal = (b[sortColumn] ?? "").toString();
@@ -166,9 +166,9 @@ function renderPersonalityDetail(active, total) {
       </div>
       <div class="personality-detail-controls">
         ${
-          stocks.length > 0
+          candidates.length > 0
             ? `<select id="personality-sector-filter" class="form-select personality-sector-filter" aria-label="Filter by Sector">
-                <option value="ALL"${personalityTableState.sectorFilter === "ALL" ? " selected" : ""}>All Sectors (${stocks.length})</option>
+                <option value="ALL"${personalityTableState.sectorFilter === "ALL" ? " selected" : ""}>All Sectors (${candidates.length})</option>
                 ${sectors
                   .map(
                     (sec) =>
@@ -179,12 +179,12 @@ function renderPersonalityDetail(active, total) {
             : ""
         }
         <div class="personality-match-pill">
-          <strong>${active.matches}</strong> of ${total} stocks match
+          <strong>${active.matches}</strong> of ${total} in the Universe
         </div>
       </div>
     </div>
     ${
-      stocks.length > 0
+      candidates.length > 0
         ? `<div class="table-responsive">
             <table>
               <thead>
@@ -201,8 +201,8 @@ function renderPersonalityDetail(active, total) {
               </thead>
               <tbody>
                 ${
-                  filteredStocks.length > 0
-                    ? filteredStocks
+                  filteredCandidates.length > 0
+                    ? filteredCandidates
                         .map(
                           (s) =>
                             `<tr>
@@ -231,12 +231,12 @@ function renderPersonalityDetail(active, total) {
                             </tr>`,
                         )
                         .join("")
-                    : `<tr><td colspan="8" class="muted" style="text-align:center; padding: 1.5rem;">No stocks found in ${escapeHtml(personalityTableState.sectorFilter)} sector.</td></tr>`
+                    : `<tr><td colspan="8" class="muted" style="text-align:center; padding: 1.5rem;">No Candidates found in ${escapeHtml(personalityTableState.sectorFilter)} sector.</td></tr>`
                 }
               </tbody>
             </table>
           </div>`
-        : "<p class='muted' style='margin-top:1rem;'>No stocks in the NIFTY 500 currently meet this criteria.</p>"
+        : "<p class='muted' style='margin-top:1rem;'>No Candidates in the Universe currently meet this Personality.</p>"
     }`;
 
   const sectorFilterEl = detailPane.querySelector("#personality-sector-filter");
@@ -414,18 +414,18 @@ document.getElementById("bt-fetch").addEventListener("click", async () => {
         <div class="metric"><div class="label">Final</div><div class="value">${money(r.finalCapital)}</div></div>
         <div class="metric ${retCls}"><div class="label">Return</div><div class="value">${r.totalReturn >= 0 ? "+" : ""}${r.totalReturn.toFixed(2)}%</div></div>
         <div class="metric"><div class="label">Max DD</div><div class="value negative">${r.maxDrawdown.toFixed(2)}%</div></div>
-        <div class="metric"><div class="label">Trades</div><div class="value">${r.trades.length}</div></div>
+        <div class="metric"><div class="label">Round-trips</div><div class="value">${r.roundTrips.length}</div></div>
         <div class="metric"><div class="label">Win Rate</div><div class="value">${r.winRate.toFixed(1)}%</div></div>
       </div>
-      ${r.trades.length ? renderTrades(r.trades) : "<p>No trades executed.</p>"}`;
+      ${r.roundTrips.length ? renderRoundTrips(r.roundTrips) : "<p>No round-trips executed.</p>"}`;
   } catch (e) {
     el.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
   }
 });
 
-function renderTrades(trades) {
+function renderRoundTrips(roundTrips) {
   return `<table><thead><tr><th>Entry</th><th>Exit</th><th>P&L</th></tr></thead><tbody>
-    ${trades
+    ${roundTrips
       .map((t, i) => {
         const cls = t.pnl >= 0 ? "positive" : "negative";
         return `<tr><td>${escapeHtml(t.entryDate)}</td><td>${escapeHtml(t.exitDate)}</td><td class="${cls}">${t.pnl >= 0 ? "+" : ""}${money(t.pnl)}</td></tr>`;

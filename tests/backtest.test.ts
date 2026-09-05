@@ -20,7 +20,8 @@ describe("BacktestEngine", () => {
     const result = engine.run(dailyPrices, 100000, (_prices, idx) => (idx === 0 ? "BUY" : "HOLD"));
     expect(result.initialCapital).toBe(100000);
     expect(result.finalCapital).toBeGreaterThan(100000);
-    expect(result.trades.length).toBe(1);
+    expect(result.roundTrips.length).toBe(1);
+    expect("trades" in result).toBe(false);
   });
 
   it("executes SMA crossover strategy", () => {
@@ -40,7 +41,7 @@ describe("BacktestEngine", () => {
       return "HOLD";
     };
     const result = engine.run(dailyPrices, 100000, smaCrossover);
-    expect(result.trades.length).toBeGreaterThanOrEqual(1);
+    expect(result.roundTrips.length).toBeGreaterThanOrEqual(1);
     expect(result.equityCurve.length).toBe(dailyPrices.length);
   });
 
@@ -66,10 +67,10 @@ describe("BacktestEngine", () => {
     expect(result.winRate).toBeLessThanOrEqual(100);
   });
 
-  it("returns zero trades with hold-only strategy", () => {
+  it("returns zero round-trips with hold-only strategy", () => {
     const engine = new BacktestEngine();
     const result = engine.run(dailyPrices, 100000, () => "HOLD");
-    expect(result.trades.length).toBe(0);
+    expect(result.roundTrips.length).toBe(0);
     expect(result.winRate).toBe(0);
   });
 

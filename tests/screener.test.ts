@@ -151,7 +151,7 @@ describe("Unified Screener module", () => {
     expect(matched.map((m) => m.symbol)).toEqual(["TCS", "INFY"]);
   });
 
-  it("runs personality screening returning stocks ranked by score descending", () => {
+  it("runs a Personality run returning Candidates ranked by score descending", () => {
     const universe: Fundamentals[] = [
       {
         symbol: "A",
@@ -184,7 +184,8 @@ describe("Unified Screener module", () => {
     expect(summary.total).toBe(mockStocks.length);
     expect(summary.personalities.length).toBeGreaterThanOrEqual(8);
     for (const run of summary.personalities) {
-      expect(run.matches).toBe(run.stocks.length);
+      expect(run.matches).toBe(run.candidates.length);
+      expect("stocks" in run).toBe(false);
     }
   });
 
@@ -192,6 +193,8 @@ describe("Unified Screener module", () => {
     const detail = screener.runPersonalityDetail(mockStocks, "buffett");
     expect(detail?.id).toBe("buffett");
     expect(detail?.total).toBe(mockStocks.length);
+    expect(Array.isArray(detail?.candidates)).toBe(true);
+    expect("stocks" in (detail ?? {})).toBe(false);
     expect(screener.runPersonalityDetail(mockStocks, "unknown-philosophy")).toBeUndefined();
   });
 });

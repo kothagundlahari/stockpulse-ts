@@ -17,10 +17,11 @@ import { OllamaService } from "./services/ollama.js";
 import { loadPortfolio } from "./services/portfolio.js";
 import { YahooFinanceService } from "./services/yahoo-finance.js";
 import {
+  type Criteria,
+  CriteriaSchema,
   type Fundamentals,
   HistoricalPriceSchema,
   QuoteSchema,
-  type ScreenerCriteria,
 } from "./types/index.js";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
@@ -255,7 +256,7 @@ export async function router(
         return;
       }
     }
-    const criteria: ScreenerCriteria = {};
+    const criteria: Criteria = {};
     if (searchParams.has("minMarketCap"))
       criteria.minMarketCap = Number(searchParams.get("minMarketCap"));
     if (searchParams.has("maxMarketCap"))
@@ -272,7 +273,13 @@ export async function router(
     if (searchParams.has("minRevenueGrowth"))
       criteria.minRevenueGrowth = Number(searchParams.get("minRevenueGrowth"));
 
-    const matched = screener.runCriteria(universe, criteria);
+    const parsed = CriteriaSchema.safeParse(criteria);
+    if (!parsed.success) {
+      sendJson(res, 400, { error: "Invalid criteria." });
+      return;
+    }
+
+    const matched = screener.runCriteria(universe, parsed.data);
     sendJson(res, 200, { total: universe.length, matches: matched.length, stocks: matched });
     return;
   }

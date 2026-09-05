@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   BacktestConfigSchema,
+  CriteriaSchema,
   QuoteSchema,
-  ScreenerCriteriaSchema,
   StockSchema,
 } from "../src/types/index.js";
 
@@ -69,21 +69,21 @@ describe("Quote", () => {
   });
 });
 
-describe("ScreenerCriteria", () => {
+describe("Criteria", () => {
   it("validates empty criteria", () => {
-    const result = ScreenerCriteriaSchema.safeParse({});
+    const result = CriteriaSchema.safeParse({});
     expect(result.success).toBe(true);
   });
 
   it("validates min market cap", () => {
-    const result = ScreenerCriteriaSchema.safeParse({
+    const result = CriteriaSchema.safeParse({
       minMarketCap: 10000,
     });
     expect(result.success).toBe(true);
   });
 
   it("rejects invalid min pe", () => {
-    const result = ScreenerCriteriaSchema.safeParse({
+    const result = CriteriaSchema.safeParse({
       minPe: "not a number",
     });
     expect(result.success).toBe(false);

@@ -28,7 +28,7 @@ This guarantees the engines and services are correct by construction and safe to
 - `tests/screener.test.ts` — Criteria and Personality Screener runs
 - `tests/personality-ranker.test.ts` — sector-benchmarked Personality scores
 - `tests/personalities.test.ts` — Personality match assertions
-- `tests/backtest.test.ts` — backtesting engine
+- `tests/backtest.test.ts` — Backtest engine (Signals and Round-trips)
 - `tests/holding-recommendation.test.ts` — holding Recommendation engine
 - `tests/portfolio.test.ts` — `loadPortfolio` / `assemblePortfolio` (InMemoryBroker, no HTTP)
 - `tests/in-memory-broker.test.ts` — in-process Broker adapter

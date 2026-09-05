@@ -2,7 +2,7 @@ import { PERSONALITIES, type SectorBenchmark } from "../data/personalities.js";
 import type { Fundamentals } from "../types/index.js";
 
 export type { SectorBenchmark };
-export type RankedStock = Fundamentals & { score: number };
+export type Candidate = Fundamentals & { score: number };
 
 const DEFAULT_BENCHMARK: SectorBenchmark = {
   medianOperatingMargin: 12.0,
@@ -73,16 +73,16 @@ export function rankPersonalityCandidates(
   personalityId: string,
   matches: (s: Fundamentals) => boolean,
   universe: Fundamentals[],
-): RankedStock[] {
+): Candidate[] {
   const sectorMedians = computeSectorMedians(universe);
   const matched = universe.filter(matches);
 
-  const ranked: RankedStock[] = matched.map((stock) => {
-    const sector = stock.sector?.trim() || "Other";
+  const ranked: Candidate[] = matched.map((member) => {
+    const sector = member.sector?.trim() || "Other";
     const benchmark = sectorMedians.get(sector) ?? DEFAULT_BENCHMARK;
-    const score = calculatePersonalityScore(personalityId, stock, benchmark);
+    const score = calculatePersonalityScore(personalityId, member, benchmark);
     return {
-      ...stock,
+      ...member,
       score,
     };
   });

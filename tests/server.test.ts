@@ -738,38 +738,38 @@ describe("HTTP API", () => {
     expect(res.status).toBe(200);
     const body = (await readJson(res)) as {
       total: number;
-      personalities: Array<{ id: string; name: string; stocks: unknown[] }>;
+      personalities: Array<{ id: string; name: string; candidates: unknown[] }>;
     };
     expect(typeof body.total).toBe("number");
     expect(Array.isArray(body.personalities)).toBe(true);
     expect(body.personalities.length).toBe(8);
     expect(body.personalities[0]).toHaveProperty("id");
     expect(body.personalities[0]).toHaveProperty("name");
-    expect(body.personalities[0]).toHaveProperty("stocks");
+    expect(body.personalities[0]).toHaveProperty("candidates");
   });
 
-  it("GET /api/personalities returns candidate stocks with score sorted descending", async () => {
+  it("GET /api/personalities returns Candidates with score sorted descending", async () => {
     const res = await fetch(`${base}/api/personalities`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      personalities: Array<{ id: string; stocks: Array<{ symbol: string; score: number }> }>;
+      personalities: Array<{ id: string; candidates: Array<{ symbol: string; score: number }> }>;
     };
     expect(body.personalities.length).toBeGreaterThan(0);
-    const withStocks = body.personalities.filter((p) => p.stocks.length > 0);
-    expect(withStocks.length).toBeGreaterThan(0);
+    const withCandidates = body.personalities.filter((p) => p.candidates.length > 0);
+    expect(withCandidates.length).toBeGreaterThan(0);
     for (const p of body.personalities) {
-      for (const s of p.stocks) {
+      for (const s of p.candidates) {
         expect(typeof s.score).toBe("number");
       }
-      if (p.stocks.length > 1) {
-        for (let i = 0; i < p.stocks.length - 1; i++) {
-          expect(p.stocks[i].score).toBeGreaterThanOrEqual(p.stocks[i + 1].score);
+      if (p.candidates.length > 1) {
+        for (let i = 0; i < p.candidates.length - 1; i++) {
+          expect(p.candidates[i].score).toBeGreaterThanOrEqual(p.candidates[i + 1].score);
         }
       }
     }
   });
 
-  it("GET /api/personalities/:id returns candidate stocks ranked descending by score", async () => {
+  it("GET /api/personalities/:id returns Candidates ranked descending by score", async () => {
     const customServer = await createServer({
       port: 0,
       realBroker: false,
@@ -807,14 +807,14 @@ describe("HTTP API", () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
         id: string;
-        stocks: Array<{ symbol: string; score: number }>;
+        candidates: Array<{ symbol: string; score: number }>;
       };
-      expect(body.stocks.length).toBe(2);
-      expect(body.stocks[0].symbol).toBe("STOCK_HIGH");
-      expect(body.stocks[1].symbol).toBe("STOCK_LOW");
-      expect(typeof body.stocks[0].score).toBe("number");
-      expect(typeof body.stocks[1].score).toBe("number");
-      expect(body.stocks[0].score).toBeGreaterThan(body.stocks[1].score);
+      expect(body.candidates.length).toBe(2);
+      expect(body.candidates[0].symbol).toBe("STOCK_HIGH");
+      expect(body.candidates[1].symbol).toBe("STOCK_LOW");
+      expect(typeof body.candidates[0].score).toBe("number");
+      expect(typeof body.candidates[1].score).toBe("number");
+      expect(body.candidates[0].score).toBeGreaterThan(body.candidates[1].score);
     } finally {
       customServer.close();
     }
@@ -825,7 +825,7 @@ describe("HTTP API", () => {
     expect(res.status).toBe(200);
     const body = await readJson(res);
     expect(body.id).toBe("buffett");
-    expect(Array.isArray(body.stocks)).toBe(true);
+    expect(Array.isArray(body.candidates)).toBe(true);
 
     const notFound = await fetch(`${base}/api/personalities/unknown-id`);
     expect(notFound.status).toBe(404);

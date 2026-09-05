@@ -16,7 +16,7 @@ Processing is **sequential** (index 0 to N), which guarantees **no look-ahead bi
 For each day:
 1. Ask the strategy for a signal
 2. On `BUY` (when flat): buy as many whole shares as cash allows, at the day's **close**
-3. On `SELL` (when long): sell the position, recording a trade and P&L
+3. On `SELL` (when long): sell the position, recording a Round-trip and P&L
 4. Record the day's total equity (cash + position value) on the equity curve
 5. Track the running max drawdown
 
@@ -28,9 +28,9 @@ At the end, any open position is closed at the last available close so the resul
 |---|---|
 | `initialCapital` / `finalCapital` | Start and end cash |
 | `totalReturn` | Overall % return |
-| `trades` | Full buy/sell history with P&L |
+| `roundTrips` | Completed simulated entry/exit pairs with P&L |
 | `equityCurve` | Per-day portfolio value (for charts) |
-| `winRate` | % of closed trades that were profitable |
+| `winRate` | % of closed Round-trips that were profitable |
 | `maxDrawdown` | Largest peak-to-trough % drop |
 
 ## Using it via the API
@@ -62,12 +62,12 @@ Initial capital:  ₹100,000
 Final capital:    ₹124,560
 Total return:     +24.56%
 Max drawdown:     -8.40%
-Total trades:     6
+Total round-trips: 6
 Win rate:         66.7%
 ```
 
 ## Design notes
 
-- **No slippage/costs are modeled** in this version — a deliberate simplification. Adding them is a matter of subtracting a cost per trade; the engine's trade records make that straightforward.
+- **No slippage/costs are modeled** in this version — a deliberate simplification. Adding them is a matter of subtracting a cost per Round-trip; the engine's Round-trip records make that straightforward.
 - The engine is **pure and dependency-free**, so it's fully unit-testable (see `tests/backtest.test.ts`) and can be reused from any interface.
 - Because the strategy is injected, you can implement mean-reversion, momentum, RSI, or any custom rule without touching the engine.

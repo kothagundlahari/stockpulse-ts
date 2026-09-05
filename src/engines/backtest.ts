@@ -7,7 +7,7 @@ export interface DailyPrice {
   volume: number;
 }
 
-export interface Trade {
+export interface RoundTrip {
   entryDate: string;
   entryPrice: number;
   exitDate: string;
@@ -19,7 +19,7 @@ export interface BacktestResult {
   initialCapital: number;
   finalCapital: number;
   totalReturn: number;
-  trades: Trade[];
+  roundTrips: RoundTrip[];
   equityCurve: { date: string; value: number }[];
   winRate: number;
   maxDrawdown: number;
@@ -63,7 +63,7 @@ export class BacktestEngine {
     let position = 0;
     let entryPrice = 0;
     let entryDate = "";
-    const trades: Trade[] = [];
+    const roundTrips: RoundTrip[] = [];
     const equityCurve: { date: string; value: number }[] = [];
     let maxEquity = initialCapital;
     let maxDrawdown = 0;
@@ -79,7 +79,7 @@ export class BacktestEngine {
         cash -= position * currentPrice;
       } else if (signal === "SELL" && position > 0) {
         const pnl = (currentPrice - entryPrice) * position;
-        trades.push({
+        roundTrips.push({
           entryDate,
           entryPrice,
           exitDate: prices[i].date,
@@ -101,7 +101,7 @@ export class BacktestEngine {
     if (position > 0) {
       const lastPrice = prices[prices.length - 1].close;
       const pnl = (lastPrice - entryPrice) * position;
-      trades.push({
+      roundTrips.push({
         entryDate,
         entryPrice,
         exitDate: prices[prices.length - 1].date,
@@ -115,13 +115,15 @@ export class BacktestEngine {
     const finalCapital = cash;
     const totalReturn = ((finalCapital - initialCapital) / initialCapital) * 100;
     const winRate =
-      trades.length > 0 ? (trades.filter((t) => t.pnl > 0).length / trades.length) * 100 : 0;
+      roundTrips.length > 0
+        ? (roundTrips.filter((t) => t.pnl > 0).length / roundTrips.length) * 100
+        : 0;
 
     return {
       initialCapital,
       finalCapital,
       totalReturn,
-      trades,
+      roundTrips,
       equityCurve,
       winRate,
       maxDrawdown,

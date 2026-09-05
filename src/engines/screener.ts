@@ -1,6 +1,6 @@
 import { PERSONALITIES, type PersonalityDefinition } from "../data/personalities.js";
-import type { Fundamentals, ScreenerCriteria } from "../types/index.js";
-import { type RankedStock, rankPersonalityCandidates } from "./personality-ranker.js";
+import type { Criteria, Fundamentals } from "../types/index.js";
+import { type Candidate, rankPersonalityCandidates } from "./personality-ranker.js";
 
 export interface PersonalityMetadata {
   id: string;
@@ -10,7 +10,7 @@ export interface PersonalityMetadata {
 
 export interface PersonalityRun extends PersonalityMetadata {
   matches: number;
-  stocks: RankedStock[];
+  candidates: Candidate[];
 }
 
 export interface PersonalityRunDetail extends PersonalityRun {
@@ -41,17 +41,17 @@ export class Screener {
   }
 
   /**
-   * Executes an ad-hoc criteria screener run against the provided stock universe.
+   * Executes an ad-hoc Criteria Screener run against the provided Universe.
    */
-  runCriteria(stocks: Fundamentals[], criteria: ScreenerCriteria): Fundamentals[] {
-    return stocks.filter((stock) => this.matchesAll(stock, criteria));
+  runCriteria(universe: Fundamentals[], criteria: Criteria): Fundamentals[] {
+    return universe.filter((member) => this.matchesAll(member, criteria));
   }
 
   /**
    * Executes a curated Personality run against the Universe,
-   * returning candidates ranked descending by their sector-benchmarked score.
+   * returning Candidates ranked descending by their sector-benchmarked score.
    */
-  runPersonality(universe: Fundamentals[], personalityId: string): RankedStock[] {
+  runPersonality(universe: Fundamentals[], personalityId: string): Candidate[] {
     const personality = this.getPersonality(personalityId);
     if (!personality) {
       throw new Error(`Unknown personality '${personalityId}'`);
@@ -67,13 +67,13 @@ export class Screener {
     personalities: PersonalityRun[];
   } {
     const personalities = this.getPersonalities().map((meta) => {
-      const stocks = this.runPersonality(universe, meta.id);
+      const candidates = this.runPersonality(universe, meta.id);
       return {
         id: meta.id,
         name: meta.name,
         description: meta.description,
-        matches: stocks.length,
-        stocks,
+        matches: candidates.length,
+        candidates,
       };
     });
     return { total: universe.length, personalities };
@@ -88,54 +88,54 @@ export class Screener {
   ): PersonalityRunDetail | undefined {
     const personality = this.getPersonality(personalityId);
     if (!personality) return undefined;
-    const stocks = this.runPersonality(universe, personality.id);
+    const candidates = this.runPersonality(universe, personality.id);
     return {
       id: personality.id,
       name: personality.name,
       description: personality.description,
       total: universe.length,
-      matches: stocks.length,
-      stocks,
+      matches: candidates.length,
+      candidates,
     };
   }
 
-  private matchesAll(stock: Fundamentals, criteria: ScreenerCriteria): boolean {
+  private matchesAll(member: Fundamentals, criteria: Criteria): boolean {
     const checks: boolean[] = [];
 
     if (criteria.minMarketCap !== undefined) {
-      checks.push(stock.marketCap !== undefined && stock.marketCap >= criteria.minMarketCap);
+      checks.push(member.marketCap !== undefined && member.marketCap >= criteria.minMarketCap);
     }
     if (criteria.maxMarketCap !== undefined) {
-      checks.push(stock.marketCap !== undefined && stock.marketCap <= criteria.maxMarketCap);
+      checks.push(member.marketCap !== undefined && member.marketCap <= criteria.maxMarketCap);
     }
     if (criteria.minPe !== undefined) {
-      checks.push(stock.peRatio !== undefined && stock.peRatio >= criteria.minPe);
+      checks.push(member.peRatio !== undefined && member.peRatio >= criteria.minPe);
     }
     if (criteria.maxPe !== undefined) {
-      checks.push(stock.peRatio !== undefined && stock.peRatio <= criteria.maxPe);
+      checks.push(member.peRatio !== undefined && member.peRatio <= criteria.maxPe);
     }
     if (criteria.minPb !== undefined) {
-      checks.push(stock.pbRatio !== undefined && stock.pbRatio >= criteria.minPb);
+      checks.push(member.pbRatio !== undefined && member.pbRatio >= criteria.minPb);
     }
     if (criteria.maxPb !== undefined) {
-      checks.push(stock.pbRatio !== undefined && stock.pbRatio <= criteria.maxPb);
+      checks.push(member.pbRatio !== undefined && member.pbRatio <= criteria.maxPb);
     }
     if (criteria.minDividendYield !== undefined) {
       checks.push(
-        stock.dividendYield !== undefined && stock.dividendYield >= criteria.minDividendYield,
+        member.dividendYield !== undefined && member.dividendYield >= criteria.minDividendYield,
       );
     }
     if (criteria.minRoe !== undefined) {
-      checks.push(stock.roe !== undefined && stock.roe >= criteria.minRoe);
+      checks.push(member.roe !== undefined && member.roe >= criteria.minRoe);
     }
     if (criteria.maxDebtToEquity !== undefined) {
       checks.push(
-        stock.debtToEquity !== undefined && stock.debtToEquity <= criteria.maxDebtToEquity,
+        member.debtToEquity !== undefined && member.debtToEquity <= criteria.maxDebtToEquity,
       );
     }
     if (criteria.minRevenueGrowth !== undefined) {
       checks.push(
-        stock.revenueGrowth !== undefined && stock.revenueGrowth >= criteria.minRevenueGrowth,
+        member.revenueGrowth !== undefined && member.revenueGrowth >= criteria.minRevenueGrowth,
       );
     }
 

@@ -20,7 +20,7 @@ A Personality encodes a classic investor's philosophy as a `Fundamentals → boo
 From the dashboard's Personalities tab, or via the API:
 
 ```
-GET /api/personalities               # all personalities with match counts and ranked stocks
+GET /api/personalities               # all personalities with match counts and Candidates
 GET /api/personalities/graham        # one Personality run
 ```
 

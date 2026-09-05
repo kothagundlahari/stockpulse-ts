@@ -40,9 +40,9 @@ StockPulse is deliberately simple. It avoids the multi-layered service/view-mode
 
 ### 3. Engines (`src/engines/`)
 Pure business logic, no I/O:
-- **`screener.ts`** — Criteria runs (`runCriteria`) and Personality runs (`runPersonality`, `runAllPersonalities`) over a Universe
+- **`screener.ts`** — Criteria runs (`runCriteria`) return Fundamentals of passing Universe members; Personality runs (`runPersonality`, `runAllPersonalities`) emit Candidates
 - **`personality-ranker.ts`** — sector-median benchmarks and ranked Personality scores
-- **`backtest.ts`** — strategy over price history (`GET /api/backtest`)
+- **`backtest.ts`** — strategy over price history (`GET /api/backtest`); emits Round-trips, never Orders
 - **`holding-recommendation.ts`** — advisory BUY_MORE / HOLD / SELL on an existing Holding
 - **`portfolio.ts`** — `assemblePortfolio`: weights and Recommendations from already-resolved observations
 

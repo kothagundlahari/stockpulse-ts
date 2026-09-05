@@ -1,65 +1,91 @@
 # StockPulse
 
-A single-context repo: a TypeScript dashboard for Indian (NIFTY) stock research. This file is a glossary of the domain's canonical terms and the vocabulary that must not be used to mean them.
+A single-context research dashboard for Indian (NIFTY) equities: it ranks a live Universe, advises on Holdings, and places Orders only when the user confirms.
 
 ## Language
 
 **Universe**:
-The live, dynamically refreshed set of NIFTY 500 constituents a screener ranks. Fetched from the NSE index CSV; not a hardcoded list.
+The current NIFTY 500 set of listed instruments under consideration. It is live and replaceable, not a frozen roster.
 _Avoid_: NIFTY list, stock list
 
 **Stock**:
-A listed instrument identified by `symbol` + `exchange`, carrying identity only — name, ISIN, sector. It holds no financial ratios.
+The identity of a listed instrument — symbol, exchange, name, optional ISIN, sector, and industry. It does not carry financial ratios.
 _Avoid_: Fundamentals, company, ticker
 
 **Fundamentals**:
-A point-in-time snapshot of financial ratios for one Stock (market cap, P/E, P/B, ROE, etc.). Not an intrinsic property of the Stock; it is captured at a moment and cached.
+A point-in-time snapshot of financial ratios for one Stock (valuation, profitability, leverage, growth). Not an intrinsic property of the Stock.
 _Avoid_: Metrics, stats, profile
 
+**Quote**:
+A live market print for one symbol — last price, change, session range, volume. Distinct from Fundamentals (ratios) and from a Holding's carried last price.
+_Avoid_: Tick, LTP (when meaning the whole print)
+
 **Personality**:
-A classic investor's philosophy encoded as a `Fundamentals → boolean` test that ranks the Universe. One of a curated, developer-defined set (e.g. `buffett`, `graham`, `klarman`).
+A curated investor philosophy: a `Fundamentals → boolean` match over the Universe plus a sector-relative score that orders those matches. Developer-defined (e.g. Buffett, Graham), not user-built.
 _Avoid_: Personality screener, investor filter, filter, strategy
 
-**Criteria** (`ScreenerCriteria`):
-A structured bag of optional min/max thresholds on fundamentals that a user builds bespoke in the dashboard. The counterpart to a `Personality`: both filter the Universe, but a `Personality` is curated and a `Criteria` is ad-hoc.
+**Criteria**:
+A user-built bag of optional min/max thresholds on Fundamentals. The ad-hoc counterpart to a Personality: both select from the Universe.
 _Avoid_: Filter, query, params
 
 **Screener run**:
-Applying a `Personality` filter or a `Criteria` bag over the Universe, producing the matched Stocks.
-_Avoid_: Scan, search
+One application of either a Personality or a Criteria bag to the Universe. Output is the passing members as their current Fundamentals; a Personality run also carries a score.
+_Avoid_: Scan, search, Stocks (the output is Fundamentals of Universe members, not Stock identity records)
+
+**Candidate**:
+A Universe member that passed a Screener run. For a Personality run it also has a sector-relative score.
+_Avoid_: Hit, match (as a noun for the row), ranked stock
+
+**Confidence**:
+How strongly a Recommendation is held — low, medium, or high. It grades the Recommendation; it is not a Signal.
+_Avoid_: Conviction, certainty, score (when meaning this grade)
+
+### Decision (research)
 
 **Signal**:
-A backtest strategy's decision at one time step on the historical/forward price path — `BUY` / `SELL` / `HOLD`. About what a strategy *would* do on a chart, not about a position the user holds.
+A backtest strategy's decision at one time step on a historical price path — `BUY` / `SELL` / `HOLD`. About what a strategy would do on a chart, not a position the user owns.
 _Avoid_: Alert, trigger, recommendation
 
+**Backtest**:
+Simulated application of Signals along a historical price path, producing round-trips and an equity curve. It never creates an Order.
+_Avoid_: Paper trade, replay (when meaning this simulation)
+
+**Round-trip**:
+A completed simulated entry and exit on a price path during a Backtest. Distinct from an Order, which is live execution.
+_Avoid_: Trade, transaction
+
 **Recommendation**:
-An action proposed for a holding the user *already* owns — `BUY_MORE` / `HOLD` / `SELL`, graded by a `Confidence` level. Distinct from a `Signal`: it acts on an existing position, not a price chart. Acting on a `Recommendation` is a *separate, manual* step — it produces an `Order` only when the user confirms; it is never auto-executed.
+An action proposed for a Holding the user already owns — `BUY_MORE` / `HOLD` / `SELL` — graded by Confidence. Distinct from a Signal. Acting on it is a separate, manual step; it becomes an Order only when the user confirms.
 _Avoid_: Advice, suggestion, signal
 
-### Execution (broker & trades)
+**Portfolio**:
+The user's Holdings taken together: total value, per-holding weight, and a Recommendation on each Holding.
+_Avoid_: Account, book, book of positions
+
+### Execution
 
 **Holding**:
-A *long-term* position — delivered and carried across sessions — carrying average cost, realized P/L, and current value. Sourced from the broker's long-term holdings.
+A long-term, delivered ownership — quantity, average cost, realized P/L, current value — carried across sessions. Sourced from the Broker in delivered form.
 _Avoid_: Position (when meaning long-term), inventory
 
 **Position**:
-An *open intraday / short-term* position, not yet delivered. Distinct from a `Holding`, which is long-term. Shares the same underlying concept (an owned quantity at an average cost); the difference is whether the exposure is delivered or still open for the day.
+An open intraday / short-term exposure, not yet delivered. Same economic idea as a Holding (quantity at average cost); the difference is delivered vs still open for the day.
 _Avoid_: Holding (when meaning intraday), open trade
 
 **Order**:
-The execution record of an intended buy or sell — a `BUY`/`SELL` with `id`, `status`, and `timestamp`. A `Signal` or `Recommendation` is a *decision*; an `Order` is what *happens*. The words "buy"/"sell" appear in both decision types and `Order`, by design: the decision and the execution are different concepts that must not be conflated.
+The execution record of a buy or sell — side, identity, status, time. A Signal or Recommendation is a decision; an Order is what happened.
 _Avoid_: Trade, transaction, exchange
 
-**Order request** (`PlaceOrderParams`):
-An intent to place an `Order` — the user's request *before* it becomes an `Order`. Gated by an explicit `confirm` flag: an order is never placed without confirmation.
-_Avoid_: Order (before it is placed), submission
+**Order request**:
+Intent to place an Order, before it exists. Gated by explicit confirmation; no Order is placed without it.
+_Avoid_: Order (before it is placed), submission, trade (as the request)
 
 **Broker**:
-The execution-venue abstraction offering holdings, positions, orders, and order placement. Upstox is the concrete implementation; the rest of the app depends on the `Broker` abstraction, not the concrete client.
-_Avoid_: Upstox (when referring to the role, not the implementation)
+The execution-venue *role*: holdings, positions, orders, and order placement. The live venue today is Upstox; the rest of the product depends on the role, not the venue.
+_Avoid_: Upstox (when referring to the role, not the live venue)
 
 **Broker session**:
-The authenticated state of a `Broker` — an OAuth access token stored locally, reflecting whether `isAuthenticated` is true. Establishing it is the OAuth login flow; dropping it is disconnect.
+Whether a Broker is currently authorized to read holdings and accept Order requests. Establishing it is authorization; dropping it is disconnect.
 _Avoid_: Token (when meaning the whole session), login, connection
 
-> **Decision vs. execution seam.** "Buy"/"sell" appears in the *decision* vocabulary (`Signal`, `Recommendation`) and the *execution* vocabulary (`Order`, `Order request`), deliberately and in separate types. A decision never becomes an `Order` without an explicit, confirmed step.
+> **Decision vs. execution.** "Buy"/"sell" appears in the decision vocabulary (`Signal`, `Recommendation`) and the execution vocabulary (`Order`, `Order request`) on purpose. A decision never becomes an Order without an explicit, confirmed step.

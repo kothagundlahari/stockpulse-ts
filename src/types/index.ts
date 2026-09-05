@@ -55,7 +55,7 @@ export const FundamentalsSchema = z.object({
 
 export type Fundamentals = z.infer<typeof FundamentalsSchema>;
 
-export const ScreenerCriteriaSchema = z.object({
+export const CriteriaSchema = z.object({
   minMarketCap: z.number().optional(),
   maxMarketCap: z.number().optional(),
   minPe: z.number().optional(),
@@ -68,7 +68,7 @@ export const ScreenerCriteriaSchema = z.object({
   maxDebtToEquity: z.number().optional(),
 });
 
-export type ScreenerCriteria = z.infer<typeof ScreenerCriteriaSchema>;
+export type Criteria = z.infer<typeof CriteriaSchema>;
 
 export const BacktestConfigSchema = z.object({
   symbol: z.string(),
