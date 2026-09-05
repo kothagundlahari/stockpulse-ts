@@ -73,7 +73,7 @@ The rest of the app depends on the `Broker` abstraction (`src/services/broker-ty
 - **`UpstoxClient`** — live production adapter
 - **`InMemoryBroker`** — deterministic in-process adapter (ADR-0001 `confirm: true` gate included)
 
-`getBroker()` returns the active `Broker`. OAuth for the live adapter is `connectUpstox` / `disconnectUpstox`. Access tokens are persisted in SQLite `broker_tokens` and never committed or logged.
+`getBroker()` returns the active `Broker`. OAuth for the live adapter is `connectUpstox` / `disconnectUpstox`. Access tokens are persisted in SQLite `broker_tokens` and never committed or logged. Establishing a live Broker session uses an HMAC'd CSRF cookie on `GET /api/broker` / `GET /callback` so the authorize `state` nonce is never stored in the cookie in cleartext.
 
 ## Portfolio intake and holding Recommendations
 

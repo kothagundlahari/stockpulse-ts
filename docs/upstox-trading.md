@@ -17,6 +17,7 @@ StockPulse connects to **Upstox** as the live Broker adapter via the Upstox Deve
 | `UPSTOX_API_KEY` | OAuth app key from Upstox developer portal |
 | `UPSTOX_API_SECRET` | OAuth app secret |
 | `UPSTOX_REDIRECT_URI` | OAuth redirect URI (default: `https://localhost:8787/callback`) |
+| `OAUTH_STATE_KEY` | Optional HMAC key for the Broker-connect CSRF cookie (raw OAuth `state` is never stored in the cookie) |
 
 Set these in a `.env` file (gitignored) or export them in your shell. Never commit them.
 
@@ -26,7 +27,7 @@ StockPulse uses the standard OAuth 2.0 authorization-code flow implemented in `s
 
 ### Step 1 — Click "Authorize" in the dashboard
 
-The server exposes the auth URL via `GET /api/broker`. The dashboard shows a "Connect to Upstox" button (or "Re-authorize" if disconnected) that directs the user to Upstox's login page.
+The server exposes the auth URL via `GET /api/broker`. When unauthenticated, that response also sets an HttpOnly `SameSite=Lax` cookie whose value is an HMAC of a CSRF nonce (not the nonce itself). The JSON body still includes the nonce so it can be appended to the authorize URL as OAuth `state`. The dashboard shows a "Connect to Upstox" button (or "Re-authorize" if disconnected) that directs the user to Upstox's login page.
 
 ### Step 2 — Log in and approve on Upstox
 
@@ -34,13 +35,13 @@ Log in to your Upstox account and approve access permissions for the application
 
 ### Step 3 — Automatic redirect & token exchange
 
-Upstox automatically redirects back to `https://localhost:8787/callback?code=...`. StockPulse's server handles this route by exchanging the authorization code for an access token, persisting it in the local SQLite database (`broker_tokens` table), and redirecting the browser back to `/?broker=connected` with a success notification. Manual code pasting is no longer required. (The manual endpoint `POST /api/broker/auth` remains available if needed.)
+Upstox automatically redirects back to `https://localhost:8787/callback?code=...&state=...`. The server compares the query `state` to the HMAC in the cookie (constant-time). A missing or mismatched cookie returns **403** and does not exchange the code. On every outcome (mismatch, provider error, missing code, success, token-exchange failure) the cookie is expired (`Max-Age=0`). A matching cookie exchanges the authorization code for an access token, persists it in the local SQLite database (`broker_tokens` table), and redirects the browser to `/?broker=connected`. Manual code pasting is no longer required. (The manual endpoint `POST /api/broker/auth` remains available if needed.)
 
 ## Server endpoints
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `GET /callback` | GET | OAuth 2.0 redirect handler from Upstox (exchanges code, saves token, redirects to dashboard) |
+| `GET /callback` | GET | OAuth 2.0 redirect handler (CSRF cookie + `state` gate, then code exchange; expires the cookie) |
 | `GET /api/broker` | GET | Returns Upstox auth status and the auth URL |
 | `POST /api/broker/auth` | POST | Completes OAuth manually — accepts `{ code }`, stores the access token |
 | `POST /api/broker/disconnect` | POST | Clears stored broker token and resets session |
