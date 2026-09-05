@@ -2,6 +2,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { signOauthStateCookie } from "../src/oauth-state-cookie.js";
 import { createServer } from "../src/server.js";
 import type { Broker } from "../src/services/broker-types.js";
 import { DatabaseService } from "../src/services/database.js";
@@ -14,6 +15,10 @@ async function readJson(res: Response): Promise<Record<string, unknown>> {
 
 let server: http.Server;
 let base = "";
+
+function oauthStateCookieHeader(state: string): string {
+  return `sp_oauth_state=${signOauthStateCookie(state)}`;
+}
 
 function getUnauthenticatedBroker(): Broker {
   return {
@@ -467,7 +472,7 @@ describe("HTTP API", () => {
     try {
       const res = await fetch(`${customBase}/callback?code=test-auth-code&state=test-state`, {
         redirect: "manual",
-        headers: { cookie: "sp_oauth_state=test-state" },
+        headers: { cookie: oauthStateCookieHeader("test-state") },
       });
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe("/?broker=connected");
@@ -484,7 +489,7 @@ describe("HTTP API", () => {
   it("GET /callback with error redirects to /?broker=error", async () => {
     const res = await fetch(`${base}/callback?error=access_denied&state=test-state`, {
       redirect: "manual",
-      headers: { cookie: "sp_oauth_state=test-state" },
+      headers: { cookie: oauthStateCookieHeader("test-state") },
     });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe(
@@ -495,7 +500,7 @@ describe("HTTP API", () => {
   it("GET /callback without code redirects to /?broker=error", async () => {
     const res = await fetch(`${base}/callback?state=test-state`, {
       redirect: "manual",
-      headers: { cookie: "sp_oauth_state=test-state" },
+      headers: { cookie: oauthStateCookieHeader("test-state") },
     });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe(
@@ -520,7 +525,7 @@ describe("HTTP API", () => {
     try {
       const res = await fetch(`${customBase}/callback?code=bad-code&state=test-state`, {
         redirect: "manual",
-        headers: { cookie: "sp_oauth_state=test-state" },
+        headers: { cookie: oauthStateCookieHeader("test-state") },
       });
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe(
@@ -957,6 +962,9 @@ describe("OAuth callback state protection", () => {
     const body = (await res.json()) as { state?: string; authUrl: string };
     expect(typeof body.state).toBe("string");
     expect(body.authUrl).toContain(`state=${body.state}`);
+    const cookieVal = /sp_oauth_state=([^;]+)/.exec(setCookie)?.[1];
+    expect(cookieVal).toBeDefined();
+    expect(cookieVal).not.toBe(body.state);
   });
 
   it("GET /callback without a state returns 403 without exchanging a code", async () => {
@@ -1007,7 +1015,7 @@ describe("OAuth callback state protection", () => {
     try {
       const res = await fetch(`${customBase}/callback?code=attacker-code&state=wrong`, {
         redirect: "manual",
-        headers: { cookie: "sp_oauth_state=expected" },
+        headers: { cookie: oauthStateCookieHeader("expected") },
       });
       expect(res.status).toBe(403);
       expect(connected).toBe(false);
@@ -1035,7 +1043,7 @@ describe("OAuth callback state protection", () => {
     try {
       const res = await fetch(`${customBase}/callback?code=good-code&state=abc`, {
         redirect: "manual",
-        headers: { cookie: "sp_oauth_state=abc" },
+        headers: { cookie: oauthStateCookieHeader("abc") },
       });
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe("/?broker=connected");

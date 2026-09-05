@@ -14,6 +14,7 @@ import {
   macosRequiresLocalTls,
 } from "./dev-launch.js";
 import { screener } from "./engines/screener.js";
+import { OAUTH_STATE_COOKIE, signOauthStateCookie } from "./oauth-state-cookie.js";
 import { connectUpstox, disconnectUpstox, getBroker } from "./services/broker.js";
 import type { Broker } from "./services/broker-types.js";
 import { DatabaseService } from "./services/database.js";
@@ -36,7 +37,6 @@ export const MAX_BODY_BYTES = 100 * 1024;
 
 const PORT = Number(process.env.PORT ?? 8787);
 
-const OAUTH_STATE_COOKIE = "sp_oauth_state";
 const HOST = process.env.HOST ?? "127.0.0.1";
 
 export interface ServerDeps {
@@ -276,7 +276,7 @@ export async function router(
     };
     const cookieState = readCookie(req.headers.cookie, OAUTH_STATE_COOKIE);
     const queryState = searchParams.get("state");
-    if (!cookieState || !queryState || !safeEqual(cookieState, queryState)) {
+    if (!cookieState || !queryState || !safeEqual(cookieState, signOauthStateCookie(queryState))) {
       clearStateCookie();
       sendJson(res, 403, { error: "OAuth state mismatch" });
       return;
@@ -336,7 +336,7 @@ export async function router(
       200,
       { authenticated: false, authUrl: deps.broker.getAuthUrl(state), state },
       {
-        "Set-Cookie": `${OAUTH_STATE_COOKIE}=${state}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`,
+        "Set-Cookie": `${OAUTH_STATE_COOKIE}=${signOauthStateCookie(state)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`,
       },
     );
     return;
