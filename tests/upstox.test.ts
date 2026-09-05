@@ -122,4 +122,13 @@ describe("UpstoxClient", () => {
       client.placeOrder({ symbol: "UNKNOWN", qty: 1, side: "BUY", type: "MARKET", confirm: true }),
     ).rejects.toThrow(/instrument/i);
   });
+
+  it("getAuthUrl includes the state parameter when provided", () => {
+    const url = client.getAuthUrl("abc123");
+    expect(url).toContain("state=abc123");
+  });
+
+  it("getAuthUrl omits state when undefined", () => {
+    expect(client.getAuthUrl()).not.toContain("state=");
+  });
 });

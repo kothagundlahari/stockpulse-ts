@@ -16,6 +16,11 @@ export class DatabaseService {
       fs.mkdirSync(dir, { recursive: true });
     }
     this.db = new SqliteDb(dbPath);
+    try {
+      fs.chmodSync(dbPath, 0o600);
+    } catch {
+      // Best-effort: some platforms do not expose chmod
+    }
     this.db.pragma("journal_mode = WAL");
     this.migrate();
   }

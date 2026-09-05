@@ -1,6 +1,9 @@
 {
   "name": "stockpulse-ts",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=20"
+  },
   "packageManager": "pnpm@11.25.0",
   "description": "Web dashboard for Indian stock research with screeners, backtesting, portfolio, and AI insights",
   "type": "module",
@@ -17,6 +20,7 @@
     "format": "biome format --write .",
     "check": "biome check . && tsc --noEmit",
     "clean": "rm -rf dist",
+    "audit": "pnpm audit --audit-level=high",
     "prepare": "husky",
     "prepublishOnly": "npm run clean && npm run build"
   },

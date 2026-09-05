@@ -1,5 +1,6 @@
 import fs from "node:fs";
-import type http from "node:http";
+import http from "node:http";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createServer } from "../src/server.js";
 import type { Broker } from "../src/services/broker-types.js";
@@ -8,6 +9,26 @@ import type { YahooFinanceService } from "../src/services/yahoo-finance.js";
 
 let server: http.Server;
 let base = "";
+
+function getUnauthenticatedBroker(): Broker {
+  return {
+    name: "upstox",
+    isAuthenticated: false,
+    getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
+    authenticate: () => Promise.resolve(),
+    getHoldings: () => Promise.resolve([]),
+    getPositions: () => Promise.resolve([]),
+    getOrders: () => Promise.resolve([]),
+    placeOrder: async () => ({ id: "mock-order" }),
+  };
+}
+
+function getAuthenticatedBroker(): Broker {
+  return {
+    ...getUnauthenticatedBroker(),
+    isAuthenticated: true,
+  };
+}
 
 beforeAll(async () => {
   server = await createServer({ port: 0, realBroker: false });
@@ -427,8 +448,9 @@ describe("HTTP API", () => {
     const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
 
     try {
-      const res = await fetch(`${customBase}/callback?code=test-auth-code`, {
+      const res = await fetch(`${customBase}/callback?code=test-auth-code&state=test-state`, {
         redirect: "manual",
+        headers: { cookie: "sp_oauth_state=test-state" },
       });
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe("/?broker=connected");
@@ -443,8 +465,9 @@ describe("HTTP API", () => {
   });
 
   it("GET /callback with error redirects to /?broker=error", async () => {
-    const res = await fetch(`${base}/callback?error=access_denied`, {
+    const res = await fetch(`${base}/callback?error=access_denied&state=test-state`, {
       redirect: "manual",
+      headers: { cookie: "sp_oauth_state=test-state" },
     });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe(
@@ -453,8 +476,9 @@ describe("HTTP API", () => {
   });
 
   it("GET /callback without code redirects to /?broker=error", async () => {
-    const res = await fetch(`${base}/callback`, {
+    const res = await fetch(`${base}/callback?state=test-state`, {
       redirect: "manual",
+      headers: { cookie: "sp_oauth_state=test-state" },
     });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe(
@@ -477,8 +501,9 @@ describe("HTTP API", () => {
     const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
 
     try {
-      const res = await fetch(`${customBase}/callback?code=bad-code`, {
+      const res = await fetch(`${customBase}/callback?code=bad-code&state=test-state`, {
         redirect: "manual",
+        headers: { cookie: "sp_oauth_state=test-state" },
       });
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe(
@@ -804,11 +829,338 @@ describe("HTTP API", () => {
       const res = await fetch(`${customBase}/api/personalities`);
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.error).toMatch(/Data fetch error/);
+      expect(body.error).toBe("Internal server error");
       expect(Array.isArray(body.personalities)).toBe(true);
       expect(body.personalities).toHaveLength(0);
     } finally {
       failingServer.close();
+    }
+  });
+});
+
+describe("SSRF symbol restriction", () => {
+  it("rejects invalid symbols on /api/quote, /api/news, and /api/trade with 400", async () => {
+    const getQuote = vi.fn();
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        yahoo: {
+          getQuote,
+          getHistoricalPrices: async () => [],
+          getFundamentals: vi.fn(),
+        } as unknown as YahooFinanceService,
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const quoteBad = await fetch(
+        `${customBase}/api/quote?symbol=${encodeURIComponent("../../../etc")}`,
+      );
+      expect(quoteBad.status).toBe(400);
+      const quoteBadBody = await quoteBad.json();
+      expect(quoteBadBody.error).toMatch(/symbol/i);
+      expect(getQuote).not.toHaveBeenCalled();
+
+      const newsBad = await fetch(
+        `${customBase}/api/news?symbol=${encodeURIComponent("<script>")}`,
+      );
+      expect(newsBad.status).toBe(400);
+
+      const tradeBad = await fetch(`${customBase}/api/trade`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: "../../etc",
+          side: "BUY",
+          qty: 1,
+          type: "MARKET",
+          confirm: true,
+        }),
+      });
+      expect(tradeBad.status).toBe(400);
+    } finally {
+      customServer.close();
+    }
+  });
+
+  it("accepts a valid uppercase symbol on /api/quote", async () => {
+    const getQuote = vi.fn().mockResolvedValue({
+      symbol: "RELIANCE",
+      ltp: 2500,
+      change: 5,
+      changePercent: 0.2,
+      open: 2480,
+      high: 2510,
+      low: 2470,
+      previousClose: 2495,
+      volume: 100000,
+      timestamp: "2026-09-05T00:00:00.000Z",
+    });
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        yahoo: {
+          getQuote,
+          getHistoricalPrices: async () => [],
+          getFundamentals: vi.fn(),
+        } as unknown as YahooFinanceService,
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/quote?symbol=RELIANCE`);
+      expect(res.status).toBe(200);
+      expect(getQuote).toHaveBeenCalledWith("RELIANCE");
+    } finally {
+      customServer.close();
+    }
+  });
+});
+
+describe("OAuth callback state protection", () => {
+  it("GET /api/broker sets a state cookie and includes state in the body when unauthenticated", async () => {
+    const res = await fetch(`${base}/api/broker`);
+    expect(res.status).toBe(200);
+    const setCookie = res.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain("sp_oauth_state=");
+    expect(setCookie).toContain("HttpOnly");
+    expect(setCookie).toContain("SameSite=Lax");
+    expect(setCookie).toContain("Max-Age=600");
+    const body = (await res.json()) as { state?: string; authUrl: string };
+    expect(typeof body.state).toBe("string");
+    expect(body.authUrl).toContain(`state=${body.state}`);
+  });
+
+  it("GET /callback without a state returns 403 without exchanging a code", async () => {
+    let connected = false;
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        connectUpstox: async () => {
+          connected = true;
+          return getUnauthenticatedBroker();
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/callback?code=attacker-code`, {
+        redirect: "manual",
+      });
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toMatch(/state/i);
+      expect(connected).toBe(false);
+    } finally {
+      customServer.close();
+    }
+  });
+
+  it("GET /callback with a mismatched state returns 403 without exchanging a code", async () => {
+    let connected = false;
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        connectUpstox: async () => {
+          connected = true;
+          return getUnauthenticatedBroker();
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/callback?code=attacker-code&state=wrong`, {
+        redirect: "manual",
+        headers: { cookie: "sp_oauth_state=expected" },
+      });
+      expect(res.status).toBe(403);
+      expect(connected).toBe(false);
+    } finally {
+      customServer.close();
+    }
+  });
+
+  it("GET /callback with matching state and cookie connects and redirects", async () => {
+    let connectedCode = "";
+    let authenticated = false;
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        connectUpstox: async (code: string) => {
+          connectedCode = code;
+          authenticated = true;
+          return getAuthenticatedBroker();
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/callback?code=good-code&state=abc`, {
+        redirect: "manual",
+        headers: { cookie: "sp_oauth_state=abc" },
+      });
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/?broker=connected");
+      expect(connectedCode).toBe("good-code");
+    } finally {
+      customServer.close();
+    }
+  });
+});
+
+describe("HTTP security headers", () => {
+  it("applies security headers on API responses", async () => {
+    const res = await fetch(`${base}/api/broker`);
+    expect(res.headers.get("content-security-policy")).toContain("default-src 'self'");
+    expect(res.headers.get("content-security-policy")).toContain("script-src 'self'");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("applies security headers on static assets", async () => {
+    const res = await fetch(`${base}/`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("rejects symlink escape from public/ with 403", async () => {
+    const port = Number(new URL(base).port);
+    const linkPath = path.join(process.cwd(), "public", "__sec-hardening-symlink__");
+    fs.rmSync(linkPath, { force: true });
+    fs.symlinkSync("/etc/passwd", linkPath);
+    try {
+      const rawGet = (pathname: string): Promise<http.ServerResponse> =>
+        new Promise((resolve, reject) => {
+          const req = http.get({ host: "127.0.0.1", port, path: pathname }, (res) => resolve(res));
+          req.on("error", reject);
+        });
+      const res = await rawGet("/__sec-hardening-symlink__");
+      expect(res.statusCode).toBe(403);
+      res.destroy();
+    } finally {
+      fs.rmSync(linkPath, { force: true });
+    }
+  });
+});
+
+describe("request body cap", () => {
+  it("POST /api/trade with a body larger than 100KB returns 413", async () => {
+    const big = {
+      symbol: "A".repeat(100 * 1024),
+      side: "BUY",
+      qty: 1,
+      type: "MARKET",
+      confirm: true,
+    };
+    const res = await fetch(`${base}/api/trade`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(big),
+    });
+    expect(res.status).toBe(413);
+    const body = await res.json();
+    expect(body.error).toMatch(/large|exceeds/i);
+  });
+
+  it("POST /api/trade aborts an oversized chunked body with 413", async () => {
+    const port = Number(new URL(base).port);
+    const statusCode = await new Promise<number>((resolve, reject) => {
+      const req = http.request(
+        { host: "127.0.0.1", port, path: "/api/trade", method: "POST" },
+        (res) => {
+          expect(res.statusCode).toBe(413);
+          res.resume();
+          res.on("end", () => resolve(res.statusCode ?? 0));
+        },
+      );
+      req.on("error", () => resolve(0));
+      req.write(Buffer.alloc(120 * 1024, "a"));
+      req.end();
+    });
+    expect(statusCode).toBe(413);
+  });
+});
+
+describe("generic server errors", () => {
+  it("GET /api/personalities returns a generic 500 message on failure", async () => {
+    const failingServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        getFundamentals: async () => {
+          throw new Error("Data fetch error");
+        },
+      },
+    });
+    await new Promise<void>((resolve) => failingServer.listen(0, () => resolve()));
+    const addr = failingServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/personalities`);
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.error).toBe("Internal server error");
+      expect(Array.isArray(body.personalities)).toBe(true);
+      expect(body.personalities).toHaveLength(0);
+    } finally {
+      failingServer.close();
+    }
+  });
+
+  it("GET /api/portfolio returns a generic 500 on non-auth broker failure", async () => {
+    const failingBroker: Broker = {
+      name: "upstox",
+      isAuthenticated: true,
+      getAuthUrl: () => "",
+      authenticate: async () => {},
+      getHoldings: async () => {
+        throw new Error("upstream exploded");
+      },
+      getPositions: async () => [],
+      getOrders: async () => [],
+      placeOrder: async () => ({ id: "mock-order" }),
+    };
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: { upstox: failingBroker },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/portfolio`);
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.error).toBe("Internal server error");
+      expect(body.expired).toBeUndefined();
+    } finally {
+      customServer.close();
     }
   });
 });

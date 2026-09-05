@@ -1,8 +1,10 @@
 import { spawn } from "node:child_process";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
+import tls from "node:tls";
 import { z } from "zod";
 import { PERSONALITIES } from "./data/nifty50.js";
 import { getNifty500Fundamentals } from "./data/nifty500.js";
@@ -26,6 +28,8 @@ import {
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 
+const REAL_PUBLIC_DIR = path.resolve(fs.realpathSync(PUBLIC_DIR));
+
 const VALID_RANGES = new Set([
   "1d",
   "5d",
@@ -40,7 +44,17 @@ const VALID_RANGES = new Set([
   "max",
 ]);
 
+/** Allow-listed NSE ticker characters: blocks path/URL manipulation in outbound requests. */
+export function assertValidSymbol(symbol: string): boolean {
+  return /^[A-Z0-9.-]{1,20}$/.test(symbol);
+}
+
+export const MAX_BODY_BYTES = 100 * 1024;
+
 const PORT = Number(process.env.PORT ?? 8787);
+
+const OAUTH_STATE_COOKIE = "sp_oauth_state";
+const HOST = process.env.HOST ?? "127.0.0.1";
 
 export interface ServerDeps {
   upstox: UpstoxClient | Broker;
@@ -53,16 +67,55 @@ export interface ServerDeps {
 }
 
 /** Minimal JSON helper. */
-export function sendJson(res: http.ServerResponse, status: number, body: unknown) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+export function sendJson(
+  res: http.ServerResponse,
+  status: number,
+  body: unknown,
+  extraHeaders: Record<string, string> = {},
+) {
+  res.setHeader("Cache-Control", "no-store");
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", ...extraHeaders });
   res.end(JSON.stringify(body));
+}
+
+const SECURITY_HEADERS = {
+  "Content-Security-Policy":
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+};
+
+/** Apply security headers to every response (HSTS only over real TLS). */
+function applySecurityHeaders(req: http.IncomingMessage, res: http.ServerResponse): void {
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    res.setHeader(name, value);
+  }
+  if (req.socket instanceof tls.TLSSocket) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000");
+  }
+}
+
+/** Thrown by readBody when a request body exceeds MAX_BODY_BYTES. */
+class PayloadTooLargeError extends Error {
+  name = "PayloadTooLargeError";
 }
 
 /** Parse JSON request body. */
 export async function readBody(req: http.IncomingMessage): Promise<unknown> {
+  const declared = Number(req.headers["content-length"]);
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    throw new PayloadTooLargeError(`Request body exceeds ${MAX_BODY_BYTES} bytes`);
+  }
   const chunks: Buffer[] = [];
+  let size = 0;
   for await (const chunk of req) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+    const buf = typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer);
+    size += buf.length;
+    if (size > MAX_BODY_BYTES) {
+      throw new PayloadTooLargeError(`Request body exceeds ${MAX_BODY_BYTES} bytes`);
+    }
+    chunks.push(buf);
   }
   if (chunks.length === 0) return {};
   try {
@@ -76,13 +129,37 @@ export async function readBody(req: http.IncomingMessage): Promise<unknown> {
   }
 }
 
+/** Read a single cookie value from a Cookie header. */
+function readCookie(cookieHeader: string | undefined, name: string): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const [key, value] = part.trim().split("=");
+    if (key === name) return value ?? "";
+  }
+  return null;
+}
+
+/** Constant-time string comparison. */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
 /** Handle async request handlers, converting errors to a 500 JSON response. */
 export function wrap(
   handler: (req: http.IncomingMessage, res: http.ServerResponse) => Promise<void> | void,
 ) {
   return (req: http.IncomingMessage, res: http.ServerResponse) => {
+    applySecurityHeaders(req, res);
     Promise.resolve(handler(req, res)).catch((err) => {
-      sendJson(res, 500, { error: err instanceof Error ? err.message : "Unknown error" });
+      if (err instanceof PayloadTooLargeError) {
+        sendJson(res, 413, { error: "Payload too large" });
+        return;
+      }
+      console.error("[server] Unhandled error:", err);
+      sendJson(res, 500, { error: "Internal server error" });
     });
   };
 }
@@ -116,7 +193,8 @@ function handleBrokerError(e: unknown, res: http.ServerResponse, deps: ServerDep
     });
     return;
   }
-  sendJson(res, 500, { error: e instanceof Error ? e.message : "Broker request failed" });
+  console.error("[server] Broker request failed:", e);
+  sendJson(res, 500, { error: "Internal server error" });
 }
 
 export async function router(
@@ -143,8 +221,9 @@ export async function router(
       });
       sendJson(res, 200, { total: universe.length, personalities: result });
     } catch (e) {
+      console.error("[server] Failed to load personalities:", e);
       sendJson(res, 500, {
-        error: e instanceof Error ? e.message : "Failed to load personalities",
+        error: "Internal server error",
         personalities: [],
         total: 0,
       });
@@ -218,8 +297,20 @@ export async function router(
 
   // --- OAuth callback ---
   if (pathname === "/callback") {
+    const clearStateCookie = () => {
+      res.setHeader("Set-Cookie", `${OAUTH_STATE_COOKIE}=; Max-Age=0; Path=/`);
+    };
+    const cookieState = readCookie(req.headers.cookie, OAUTH_STATE_COOKIE);
+    const queryState = searchParams.get("state");
+    if (!cookieState || !queryState || !safeEqual(cookieState, queryState)) {
+      clearStateCookie();
+      sendJson(res, 403, { error: "OAuth state mismatch" });
+      return;
+    }
+
     const error = searchParams.get("error");
     if (error) {
+      clearStateCookie();
       res.writeHead(302, {
         Location: `/?broker=error&message=${encodeURIComponent(error)}`,
       });
@@ -229,6 +320,7 @@ export async function router(
 
     const code = searchParams.get("code");
     if (!code) {
+      clearStateCookie();
       res.writeHead(302, {
         Location: `/?broker=error&message=${encodeURIComponent("Missing authorization code")}`,
       });
@@ -244,11 +336,13 @@ export async function router(
             return getUpstoxClient();
           })();
       deps.upstox = client;
+      clearStateCookie();
       res.writeHead(302, { Location: "/?broker=connected" });
       res.end();
       return;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Authentication failed";
+      clearStateCookie();
       res.writeHead(302, {
         Location: `/?broker=error&message=${encodeURIComponent(msg)}`,
       });
@@ -258,10 +352,19 @@ export async function router(
   }
 
   if (pathname === "/api/broker") {
-    sendJson(res, 200, {
-      authenticated: deps.upstox.isAuthenticated,
-      authUrl: deps.upstox.getAuthUrl(),
-    });
+    if (deps.upstox.isAuthenticated) {
+      sendJson(res, 200, { authenticated: true, authUrl: deps.upstox.getAuthUrl() });
+      return;
+    }
+    const state = randomBytes(16).toString("hex");
+    sendJson(
+      res,
+      200,
+      { authenticated: false, authUrl: deps.upstox.getAuthUrl(state), state },
+      {
+        "Set-Cookie": `${OAUTH_STATE_COOKIE}=${state}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`,
+      },
+    );
     return;
   }
 
@@ -359,6 +462,10 @@ export async function router(
       sendJson(res, 400, { error: "Missing or invalid symbol." });
       return;
     }
+    if (typeof body.symbol !== "string" || !assertValidSymbol(body.symbol.toUpperCase())) {
+      sendJson(res, 400, { error: "Invalid symbol" });
+      return;
+    }
     if (body.side !== "BUY" && body.side !== "SELL") {
       sendJson(res, 400, { error: "Invalid side. Must be BUY or SELL." });
       return;
@@ -412,6 +519,10 @@ export async function router(
       sendJson(res, 400, { error: "Missing ?symbol=X" });
       return;
     }
+    if (!assertValidSymbol(symbol)) {
+      sendJson(res, 400, { error: "Invalid symbol" });
+      return;
+    }
     const quote = await deps.yahoo.getQuote(symbol);
     const parsed = QuoteSchema.safeParse(quote);
     if (!parsed.success) {
@@ -427,6 +538,10 @@ export async function router(
     const range = searchParams.get("range") ?? "1y";
     if (!symbol) {
       sendJson(res, 400, { error: "Missing ?symbol=X" });
+      return;
+    }
+    if (!assertValidSymbol(symbol)) {
+      sendJson(res, 400, { error: "Invalid symbol" });
       return;
     }
     if (!VALID_RANGES.has(range)) {
@@ -457,6 +572,10 @@ export async function router(
       sendJson(res, 400, { error: "Missing ?symbol=X" });
       return;
     }
+    if (!assertValidSymbol(symbol)) {
+      sendJson(res, 400, { error: "Invalid symbol" });
+      return;
+    }
     sendJson(res, 200, await fetchStockNews(symbol, Number(searchParams.get("limit") ?? 10)));
     return;
   }
@@ -469,7 +588,20 @@ export async function router(
     res.end("Forbidden");
     return;
   }
-  fs.readFile(resolved, (err, data) => {
+  let realResolved: string;
+  try {
+    realResolved = fs.realpathSync(resolved);
+  } catch {
+    res.writeHead(404);
+    res.end("Not found");
+    return;
+  }
+  if (!realResolved.startsWith(REAL_PUBLIC_DIR)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
+  fs.readFile(realResolved, (err, data) => {
     if (err) {
       res.writeHead(404);
       res.end("Not found");
@@ -503,7 +635,10 @@ export async function createServer(opts: ServerOptions = {}): Promise<http.Serve
         : {
             name: "upstox",
             isAuthenticated: false,
-            getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
+            getAuthUrl: (state?: string) =>
+              state
+                ? `https://api.upstox.com/v2/login/authorization/dialog?state=${encodeURIComponent(state)}`
+                : "https://api.upstox.com/v2/login/authorization/dialog",
             authenticate: async () => {},
             getHoldings: async () => [],
             getPositions: async () => [],
@@ -566,7 +701,7 @@ const isMain =
 if (isMain) {
   const s = await createServer({ port: PORT, realBroker: true });
   const isHttps = s instanceof https.Server;
-  s.listen(PORT, () => {
+  s.listen(PORT, HOST, () => {
     const proto = isHttps ? "https" : "http";
     const url = `${proto}://localhost:${PORT}`;
     console.log(`StockPulse dashboard: ${url}`);

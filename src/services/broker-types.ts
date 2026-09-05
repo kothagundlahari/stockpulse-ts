@@ -39,7 +39,7 @@ export interface PlaceOrderParams {
 export interface Broker {
   readonly name: string;
   isAuthenticated: boolean;
-  getAuthUrl(): string;
+  getAuthUrl(state?: string): string;
   authenticate(code: string): Promise<void>;
   getHoldings(): Promise<Holding[]>;
   getPositions(): Promise<Position[]>;

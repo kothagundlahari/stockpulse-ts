@@ -1,21 +1,29 @@
 # Security Policy
 
+StockPulse is a local-only research dashboard. It does not expose a public
+service, but security issues should still be reported privately.
+
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
-
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| Version | Supported |
+| ------- | --------- |
+| 1.x     | ✅        |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Please report security issues privately rather than opening a public issue:
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+- Open a GitHub issue on this repository with a **security** label, or
+- Email the maintainer at `kothagundlahari@gmail.com` (address listed in
+  the project README).
+
+You can expect an initial response within one week. Confirmed issues are
+fixed in the next normal release.
+
+## Posture
+
+- The server binds to `127.0.0.1` by default; it is not designed to be
+  exposed to the internet (override the bind with `HOST=0.0.0.0` only on
+  networks you trust).
+- Upstox OAuth uses a `state` parameter to prevent account-linking CSRF.
+- Secrets live only in a gitignored `.env` file and are never committed.

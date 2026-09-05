@@ -771,7 +771,7 @@ export async function readBody(req: http.IncomingMessage): Promise<unknown> {
 ```ts
 .catch((err) => {
   if (err instanceof PayloadTooLargeError) {
-    sendJson(res, 413, { error: err.message });
+    sendJson(res, 413, { error: "Payload too large" });
     return;
   }
   sendJson(res, 500, { error: err instanceof Error ? err.message : "Unknown error" });
@@ -888,7 +888,7 @@ Expected: FAIL — the two new/updated tests still see the real messages.
 ```ts
 .catch((err) => {
   if (err instanceof PayloadTooLargeError) {
-    sendJson(res, 413, { error: err.message });
+    sendJson(res, 413, { error: "Payload too large" });
     return;
   }
   console.error("[server] Unhandled error:", err);
