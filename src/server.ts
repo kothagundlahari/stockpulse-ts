@@ -317,7 +317,9 @@ export async function router(
       res,
       200,
       { authenticated: false, authUrl: deps.upstox.getAuthUrl(state), state },
-      { "Set-Cookie": `${OAUTH_STATE_COOKIE}=${state}; HttpOnly; SameSite=Lax; Path=/` },
+      {
+        "Set-Cookie": `${OAUTH_STATE_COOKIE}=${state}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`,
+      },
     );
     return;
   }

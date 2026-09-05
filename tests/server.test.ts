@@ -932,6 +932,7 @@ describe("OAuth callback state protection", () => {
     expect(setCookie).toContain("sp_oauth_state=");
     expect(setCookie).toContain("HttpOnly");
     expect(setCookie).toContain("SameSite=Lax");
+    expect(setCookie).toContain("Max-Age=600");
     const body = (await res.json()) as { state?: string; authUrl: string };
     expect(typeof body.state).toBe("string");
     expect(body.authUrl).toContain(`state=${body.state}`);
