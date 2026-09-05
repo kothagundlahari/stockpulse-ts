@@ -1539,7 +1539,7 @@ Run the dashboard:
 1. `pnpm install`
 2. `pnpm dev`   # opens http://localhost:8787 (set OPEN_BROWSER=1 to auto-open)
 
-Use the tabs: Quotes, Personalities, Backtest, Journal, News, and Portfolio.
+Use the tabs: Quotes, Personalities, Backtest, News, and Portfolio.
 The Portfolio tab connects to your Upstox account for holdings, recommendations,
 and (optional, confirmed) trade execution.
 ```
@@ -1577,7 +1577,7 @@ Expected: `dist/` produced without errors.
 - [ ] **Step 4: Manual smoke test of the dashboard**
 
 Run: `pnpm dev`
-Expected: dashboard loads; Quotes/Personalities/Backtest/Journal/News still work; Portfolio tab shows broker status and handles no-auth gracefully.
+Expected: dashboard loads; Quotes/Personalities/Backtest/News still work; Portfolio tab shows broker status and handles no-auth gracefully.
 
 - [ ] **Step 5: Final commit (if any verification artifacts)**
 

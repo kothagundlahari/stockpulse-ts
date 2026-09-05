@@ -33,7 +33,8 @@ with a supplementary web dashboard. The user wants to:
   **Both Kite and FYERS are therefore removed; Upstox is the sole broker.**
 - Neither existing broker exposes holdings/positions or trade history — the
   critical gap for the portfolio view.
-- Trade tracking is a manual SQLite journal only; not linked to any broker.
+- Trade tracking is provided by broker order history in the Portfolio view; the
+  removed manual SQLite journal is no longer part of the current application.
 - The screener universe is hardcoded in `src/data/nifty50.ts` (~49 static
   fundamentals rows). `getLiveNifty50Fundamentals` fetches live data for those
   same ~49 symbols and merges over the static snapshot.
@@ -270,7 +271,7 @@ Add endpoints (server currently only handles GET; add POST body parsing):
 - `POST /api/broker/auth` — complete OAuth (accept auth code, store tokens).
 
 Existing endpoints (`/api/quote`, `/api/personalities`, `/api/backtest`,
-`/api/journal`, `/api/news`) remain.
+`/api/news`) remain.
 
 `/api/personalities` re-points to the dynamic NIFTY 500 universe.
 
