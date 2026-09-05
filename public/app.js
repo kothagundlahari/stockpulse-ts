@@ -80,6 +80,11 @@ function navigateToTrade(symbol, side = "BUY") {
   }
 }
 
+function buildPerplexityFinanceUrl(symbol) {
+  const query = `${String(symbol).trim()} NSE stock financial analysis`;
+  return `https://www.perplexity.ai/search/new?q=${encodeURIComponent(query)}`;
+}
+
 // Personalities State & Master-Detail Renderer
 const personalitiesState = {
   data: null,
@@ -190,7 +195,7 @@ function renderPersonalityDetail(active, total) {
                           (s) =>
                             `<tr>
                               <td>
-                                <button type="button" class="personality-symbol-btn" data-symbol="${s.symbol}" title="Click to trade ${s.symbol}">
+                                <button type="button" class="personality-symbol-btn" data-symbol="${s.symbol}" title="Research ${s.symbol} in Perplexity Finance">
                                   ${s.symbol}
                                 </button>
                               </td>
@@ -245,7 +250,16 @@ function renderPersonalityDetail(active, total) {
     });
   });
 
-  detailPane.querySelectorAll(".personality-symbol-btn, .personality-buy-btn").forEach((btn) => {
+  detailPane.querySelectorAll(".personality-symbol-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const symbol = btn.dataset.symbol;
+      if (symbol) {
+        window.open(buildPerplexityFinanceUrl(symbol), "_blank", "noopener,noreferrer");
+      }
+    });
+  });
+
+  detailPane.querySelectorAll(".personality-buy-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const symbol = btn.dataset.symbol;
       if (symbol) {
