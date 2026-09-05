@@ -3,39 +3,34 @@ import SqliteDb from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseService } from "../src/services/database.js";
 
-const TEST_DB = "./data/test-stockpulse.db";
+const JOURNAL_REMOVAL_DB = "./data/test-journal-removal.db";
 
-describe("DatabaseService", () => {
-  let db: DatabaseService;
-
-  beforeEach(() => {
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
+describe("journal removal migration", () => {
+  const cleanup = () => {
+    for (const suffix of ["", "-wal", "-shm"]) {
+      const path = `${JOURNAL_REMOVAL_DB}${suffix}`;
+      if (fs.existsSync(path)) {
+        fs.unlinkSync(path);
+      }
     }
-    db = new DatabaseService(TEST_DB);
-  });
+  };
 
-  afterEach(() => {
-    db.close();
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
-    }
-  });
+  beforeEach(cleanup);
+  afterEach(cleanup);
 
   it("drops the legacy journal table during migration", () => {
-    db.close();
-    fs.unlinkSync(TEST_DB);
-    const legacyDb = new SqliteDb(TEST_DB);
+    const legacyDb = new SqliteDb(JOURNAL_REMOVAL_DB);
     legacyDb.exec("CREATE TABLE journal (id TEXT PRIMARY KEY, notes TEXT)");
     legacyDb.prepare("INSERT INTO journal (id, notes) VALUES (?, ?)").run("1", "legacy");
     legacyDb.close();
 
-    db = new DatabaseService(TEST_DB);
-    const migratedDb = new SqliteDb(TEST_DB);
+    const db = new DatabaseService(JOURNAL_REMOVAL_DB);
+    const migratedDb = new SqliteDb(JOURNAL_REMOVAL_DB);
     const journalTable = migratedDb
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journal'")
       .get();
     migratedDb.close();
+    db.close();
 
     expect(journalTable).toBeUndefined();
   });
