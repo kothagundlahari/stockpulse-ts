@@ -95,6 +95,18 @@ No new certificate story. HSTS is emitted only when the existing optional local-
 - **`docs/upstox-trading.md`, `docs/development.md`** — update the bind default to `127.0.0.1`, document the `HOST` override, note the new OAuth state protection.
 - **`src/services/database.ts`** — after creating the DB file, `chmod` the file to `0600` (POSIX only; skip silently on platforms where `chmodSync` is unavailable).
 
+## 7. Server-side request forgery — symbol input restriction
+
+**Files:** `src/server.ts`
+
+Added after spec approval from the live CodeQL feed (alerts #1–#3, `js/request-forgery`, critical): the user-supplied `?symbol=` parameter flows unvalidated into outbound request URLs in `src/services/yahoo-finance.ts:29` (`getQuote`), `src/services/yahoo-finance.ts:66` (`getHistoricalPrices`), and `src/services/news.ts:57` (`fetchStockNews`). A crafted value (`../`, URL metacharacters) could redirect requests to unintended endpoints.
+
+- Add `assertValidSymbol(symbol: string)` in `src/server.ts`: returns `true` when the symbol matches `^[A-Z0-9.\-]{1,20}$` (uppercase NSE-style tickers; letters, digits, `.`, `-`), else `false`.
+- Apply at the boundary in `/api/quote` (`src/server.ts:410`), `/api/backtest` (`src/server.ts:426`), `/api/news` (`src/server.ts:455`), each returning **400** `{ error: "Invalid symbol" }` on failure. Symbol inputs are uppercased before validation exactly as today.
+- Apply the same check to the `body.symbol` in `/api/trade` (`src/server.ts:358`).
+- This restricts user input to the allow-listed character class per the CodeQL `js/request-forgery` recommendation, making path/URL manipulation impossible.
+- Tests: `tests/server.test.ts` — `/api/quote?symbol=..%2F..%2Fetc` → 400; `/api/quote?symbol=VALID` → 200; `/api/news?symbol=<script>` → 400; `/api/trade` with symbol `../../../etc` → 400.
+
 ## Testing Strategy
 
 Extend existing suites; run `pnpm check && pnpm test` before completion.
@@ -102,14 +114,15 @@ Extend existing suites; run `pnpm check && pnpm test` before completion.
 - `tests/server.test.ts`:
   - Security headers present on a sample `/api` route and on a static asset
   - Oversized `Content-Length` → 413; streaming over-cap → 413
-  - Throwing route → generic 500 message (real message not leaked)
+  - Throwing route → generic 500 message (real message not leaked); personality-failure path updated to the generic message
   - `/callback` with missing/mismatched state → 403, no exchange
-  - `/callback` with matching cookie + state → proceeds
+  - `/callback` with matching cookie + state → proceeds; existing callback tests updated to send a valid state
   - Static traversal `..` → 403
-- `tests/upstox.test.ts`: authorize URL contains a `state` query parameter.
+  - Invalid symbols → 400 on `/api/quote`, `/api/news`, `/api/trade`; valid symbol passes
+- `tests/upstox.test.ts`: authorize URL contains a `state` query parameter, and omits it when none is given.
 - `tests/broker.test.ts`: unaffected behavior (token save/load) still passes.
-- `tests/database.test.ts`: DB still opens; no perms assertion required (platform-dependent).
-- Frontend: manual verification only (see section 3).
+- `tests/database.test.ts`: DB still opens; a `0600` mode assertion on the created file (POSIX; skipped gracefully elsewhere).
+- Frontend: manual verification only (see section 3); `tests/frontend-surfaces.test.ts` additionally asserts `app.js` has no `onclick=` and contains the `escapeHtml` helper.
 
 ## Constraints
 
