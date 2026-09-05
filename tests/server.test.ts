@@ -998,14 +998,12 @@ describe("OAuth callback state protection", () => {
 
   it("GET /callback with matching state and cookie connects and redirects", async () => {
     let connectedCode = "";
-    let authenticated = false;
     const customServer = await createServer({
       port: 0,
       realBroker: false,
       deps: {
         connectUpstox: async (code: string) => {
           connectedCode = code;
-          authenticated = true;
           return getAuthenticatedBroker();
         },
       },
@@ -1087,7 +1085,7 @@ describe("request body cap", () => {
 
   it("POST /api/trade aborts an oversized chunked body with 413", async () => {
     const port = Number(new URL(base).port);
-    const statusCode = await new Promise<number>((resolve, reject) => {
+    const statusCode = await new Promise<number>((resolve) => {
       const req = http.request(
         { host: "127.0.0.1", port, path: "/api/trade", method: "POST" },
         (res) => {
