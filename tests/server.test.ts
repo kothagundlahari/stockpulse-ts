@@ -2,7 +2,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { signOauthStateCookie } from "../src/oauth-state-cookie.js";
+import { signConnectCsrf } from "../src/oauth-state-cookie.js";
 import { createServer } from "../src/server.js";
 import type { Broker } from "../src/services/broker-types.js";
 import { DatabaseService } from "../src/services/database.js";
@@ -22,7 +22,7 @@ let server: http.Server;
 let base = "";
 
 function oauthStateCookieHeader(state: string): string {
-  return `sp_oauth_state=${signOauthStateCookie(state)}`;
+  return `sp_oauth_state=${signConnectCsrf(state)}`;
 }
 
 function getUnauthenticatedBroker(): Broker {
@@ -993,6 +993,7 @@ describe("OAuth callback state protection", () => {
       const body = await readJson(res);
       expect(body.error).toMatch(/state/i);
       expect(connected).toBe(false);
+      expect(res.headers.get("set-cookie") ?? "").toContain("Max-Age=0");
     } finally {
       customServer.close();
     }
@@ -1021,6 +1022,7 @@ describe("OAuth callback state protection", () => {
       });
       expect(res.status).toBe(403);
       expect(connected).toBe(false);
+      expect(res.headers.get("set-cookie") ?? "").toContain("Max-Age=0");
     } finally {
       customServer.close();
     }
@@ -1050,6 +1052,9 @@ describe("OAuth callback state protection", () => {
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe("/?broker=connected");
       expect(connectedCode).toBe("good-code");
+      const setCookie = res.headers.get("set-cookie") ?? "";
+      expect(setCookie).toContain("Max-Age=0");
+      expect(setCookie).toMatch(/^sp_oauth_state=;/);
     } finally {
       customServer.close();
     }
