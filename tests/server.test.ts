@@ -812,3 +812,90 @@ describe("HTTP API", () => {
     }
   });
 });
+
+describe("SSRF symbol restriction", () => {
+  it("rejects invalid symbols on /api/quote, /api/news, and /api/trade with 400", async () => {
+    const getQuote = vi.fn();
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        yahoo: {
+          getQuote,
+          getHistoricalPrices: async () => [],
+          getFundamentals: vi.fn(),
+        } as unknown as YahooFinanceService,
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const quoteBad = await fetch(
+        `${customBase}/api/quote?symbol=${encodeURIComponent("../../../etc")}`,
+      );
+      expect(quoteBad.status).toBe(400);
+      const quoteBadBody = await quoteBad.json();
+      expect(quoteBadBody.error).toMatch(/symbol/i);
+      expect(getQuote).not.toHaveBeenCalled();
+
+      const newsBad = await fetch(
+        `${customBase}/api/news?symbol=${encodeURIComponent("<script>")}`,
+      );
+      expect(newsBad.status).toBe(400);
+
+      const tradeBad = await fetch(`${customBase}/api/trade`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: "../../etc",
+          side: "BUY",
+          qty: 1,
+          type: "MARKET",
+          confirm: true,
+        }),
+      });
+      expect(tradeBad.status).toBe(400);
+    } finally {
+      customServer.close();
+    }
+  });
+
+  it("accepts a valid uppercase symbol on /api/quote", async () => {
+    const getQuote = vi.fn().mockResolvedValue({
+      symbol: "RELIANCE",
+      ltp: 2500,
+      change: 5,
+      changePercent: 0.2,
+      open: 2480,
+      high: 2510,
+      low: 2470,
+      previousClose: 2495,
+      volume: 100000,
+      timestamp: "2026-09-05T00:00:00.000Z",
+    });
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        yahoo: {
+          getQuote,
+          getHistoricalPrices: async () => [],
+          getFundamentals: vi.fn(),
+        } as unknown as YahooFinanceService,
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/quote?symbol=RELIANCE`);
+      expect(res.status).toBe(200);
+      expect(getQuote).toHaveBeenCalledWith("RELIANCE");
+    } finally {
+      customServer.close();
+    }
+  });
+});

@@ -40,6 +40,11 @@ const VALID_RANGES = new Set([
   "max",
 ]);
 
+/** Allow-listed NSE ticker characters: blocks path/URL manipulation in outbound requests. */
+export function assertValidSymbol(symbol: string): boolean {
+  return /^[A-Z0-9.-]{1,20}$/.test(symbol);
+}
+
 const PORT = Number(process.env.PORT ?? 8787);
 
 export interface ServerDeps {
@@ -359,6 +364,10 @@ export async function router(
       sendJson(res, 400, { error: "Missing or invalid symbol." });
       return;
     }
+    if (typeof body.symbol !== "string" || !assertValidSymbol(body.symbol.toUpperCase())) {
+      sendJson(res, 400, { error: "Invalid symbol" });
+      return;
+    }
     if (body.side !== "BUY" && body.side !== "SELL") {
       sendJson(res, 400, { error: "Invalid side. Must be BUY or SELL." });
       return;
@@ -412,6 +421,10 @@ export async function router(
       sendJson(res, 400, { error: "Missing ?symbol=X" });
       return;
     }
+    if (!assertValidSymbol(symbol)) {
+      sendJson(res, 400, { error: "Invalid symbol" });
+      return;
+    }
     const quote = await deps.yahoo.getQuote(symbol);
     const parsed = QuoteSchema.safeParse(quote);
     if (!parsed.success) {
@@ -427,6 +440,10 @@ export async function router(
     const range = searchParams.get("range") ?? "1y";
     if (!symbol) {
       sendJson(res, 400, { error: "Missing ?symbol=X" });
+      return;
+    }
+    if (!assertValidSymbol(symbol)) {
+      sendJson(res, 400, { error: "Invalid symbol" });
       return;
     }
     if (!VALID_RANGES.has(range)) {
@@ -455,6 +472,10 @@ export async function router(
     const symbol = searchParams.get("symbol")?.toUpperCase();
     if (!symbol) {
       sendJson(res, 400, { error: "Missing ?symbol=X" });
+      return;
+    }
+    if (!assertValidSymbol(symbol)) {
+      sendJson(res, 400, { error: "Invalid symbol" });
       return;
     }
     sendJson(res, 200, await fetchStockNews(symbol, Number(searchParams.get("limit") ?? 10)));
