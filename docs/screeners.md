@@ -1,12 +1,12 @@
 # Screeners
 
-Screeners filter a universe of stocks down to those matching your criteria. The engine (`src/engines/screener.ts`) is a pure function with no I/O.
+A Screener run applies either ad-hoc **Criteria** or a curated **Personality** over the Universe. The engine (`src/engines/screener.ts`) is pure: no I/O.
 
 ## Universe
 
-The screener operates over the **dynamic NIFTY 500 universe** (`src/data/nifty500.ts`). Symbol lists are fetched live from the NSE index constituents CSV, and per-symbol fundamentals are fetched from Yahoo Finance with a 30-minute cache. There is no hardcoded stock data.
+The Screener operates over the **dynamic NIFTY 500 Universe** (`src/data/nifty500.ts`). Symbols come from the NSE index CSV. Fundamentals come from Yahoo Finance; `DatabaseService` enforces a 24-hour freshness window internally. There is no hardcoded stock data.
 
-## Available criteria
+## Available Criteria
 
 | Field | Meaning |
 |---|---|
@@ -18,23 +18,22 @@ The screener operates over the **dynamic NIFTY 500 universe** (`src/data/nifty50
 | `maxDebtToEquity` | Maximum debt-to-equity ratio |
 | `minRevenueGrowth` | Minimum revenue growth (%) |
 
-Every criterion is **optional**. Only the criteria you specify are applied; unspecified ones don't constrain results.
+Every field is **optional**. Only the Criteria you specify are applied.
 
 ## Behavior rules
 
-- A stock is included only if it passes **all** provided criteria (AND logic).
-- If a stock is **missing the required field**, it's treated as failing that criterion. For example, `{ maxPe: 20 }` excludes any stock whose `peRatio` is `undefined`.
-- An empty criteria object returns the entire universe.
+- A stock is included only if it passes **all** provided Criteria (AND logic).
+- If a stock is **missing the required field**, it fails that criterion. For example, `{ maxPe: 20 }` excludes any stock whose `peRatio` is `undefined`.
+- An empty Criteria bag returns the entire Universe.
 
 ## Using it via the API
 
-The screener is exposed through `GET /api/screen` on the web dashboard. Pass criteria as query parameters:
-
 ```
 GET /api/screen?minMarketCap=500000&maxPe=30&minRoe=15&maxDebtToEquity=0.5
+GET /api/screener?minMarketCap=500000&maxPe=30&minRoe=15&maxDebtToEquity=0.5
 ```
 
-Response:
+`/api/screener` is an alias of `/api/screen`. Response:
 
 ```json
 {
@@ -56,10 +55,9 @@ The engine compares raw numeric values. It does **not** divide by 100 for you:
 ## Using it in your own code
 
 ```ts
-import { ScreenerEngine } from "./src/engines/screener.js";
+import { Screener } from "./src/engines/screener.js";
 
-const engine = new ScreenerEngine();
-const filtered = engine.filter(myStocks, { minPe: 10, maxPe: 25 });
+const screener = new Screener();
+const matched = screener.runCriteria(universe, { minPe: 10, maxPe: 25 });
+const ranked = screener.runPersonality(universe, "buffett");
 ```
-
-Because the engine is stateless, you can reuse a single instance across many universes.

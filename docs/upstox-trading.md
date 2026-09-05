@@ -69,7 +69,7 @@ The Upstox client implements the shared `Broker` interface (`src/services/broker
 interface Broker {
   readonly name: string;
   isAuthenticated: boolean;
-  getAuthUrl(): string;
+  getAuthUrl(state?: string): string;
   authenticate(code: string): Promise<void>;
   getHoldings(): Promise<Holding[]>;
   getPositions(): Promise<Position[]>;
@@ -77,6 +77,8 @@ interface Broker {
   placeOrder(params: PlaceOrderParams & { confirm: true }): Promise<{ id: string }>;
 }
 ```
+
+`getBroker()` returns the active adapter. Tests and offline work use `InMemoryBroker`, which enforces the same `confirm: true` gate (ADR-0001).
 
 ## Token persistence
 

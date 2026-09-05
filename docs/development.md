@@ -25,25 +25,29 @@ This guarantees the engines and services are correct by construction and safe to
 ### Test structure
 
 - `tests/types.test.ts` — Zod schema validation
-- `tests/screener.test.ts` — screener engine
+- `tests/screener.test.ts` — Criteria and Personality Screener runs
+- `tests/personality-ranker.test.ts` — sector-benchmarked Personality scores
+- `tests/personalities.test.ts` — Personality match assertions
 - `tests/backtest.test.ts` — backtesting engine
-- `tests/personalities.test.ts` — personality filter assertions
-- `tests/holding-recommendation.test.ts` — holding recommendation engine
-- `tests/database.test.ts` — SQLite persistence (uses a temp DB)
+- `tests/holding-recommendation.test.ts` — holding Recommendation engine
+- `tests/portfolio.test.ts` — `loadPortfolio` / `assemblePortfolio` (InMemoryBroker, no HTTP)
+- `tests/in-memory-broker.test.ts` — in-process Broker adapter
+- `tests/broker.test.ts` — Broker factory / session
+- `tests/database.test.ts` — SQLite persistence and freshness (temp DB)
 - `tests/yahoo-finance.test.ts` — API client (mocked axios)
 
 Run a single file:
 
 ```bash
-npx vitest run tests/screener.test.ts
+pnpm test -- tests/screener.test.ts
 ```
 
 ## Naming & layout
 
-- **Engines** (`src/engines/`) — pure logic, no I/O, no dependencies
-- **Services** (`src/services/`) — I/O: HTTP, DB, external systems
+- **Engines** (`src/engines/`) — pure logic, no I/O
+- **Services** (`src/services/`) — I/O: HTTP, DB, Broker adapters, portfolio intake
 - **Types** (`src/types/`) — shared Zod schemas
-- **Server** (`src/server.ts`) — HTTP routing and JSON API
+- **Server** (`src/server.ts`) — HTTP transport and JSON API
 - **Dashboard** (`public/`) — plain HTML/CSS/JS
 
 Keep business logic in engines, not in the server or dashboard. If a behavior is testable without a network or database, it belongs in an engine.
@@ -100,5 +104,5 @@ pnpm test:watch
 
 **Type-only check without emitting:**
 ```bash
-npx tsc --noEmit
+pnpm check
 ```

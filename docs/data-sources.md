@@ -30,12 +30,12 @@ Used for core market data: live quotes, historical OHLCV, per-symbol fundamental
 
 ## NSE Index CSV (`/data/nifty500.ts`)
 
-The NIFTY 500 universe is sourced live from the official NSE index constituents CSV (`ind_nifty500list.csv`). This is the primary symbol list used by the screener, personality filters, and the dynamic universe.
+The NIFTY 500 Universe is sourced live from the official NSE index constituents CSV (`ind_nifty500list.csv`). This is the primary symbol list used by the Screener, Personality runs, and the dynamic Universe.
 
 - Symbols are parsed from the CSV at fetch time
 - The symbol list is cached for 24 hours
-- Per-symbol fundamentals are fetched from Yahoo Finance and cached for 30 minutes
-- Symbols that fail to fetch are silently skipped
+- Per-symbol Fundamentals are fetched from Yahoo Finance; `getFreshFundamentals` / `getAllFreshFundamentals` expire rows internally (default 24 hours)
+- Symbols that fail to fetch fall back to cached Fundamentals when available
 
 Multiple sources are used because no single source provides everything: NSE provides the authoritative constituent list, while Yahoo Finance provides the fundamental data (P/E, ROE, debt-to-equity, etc.) needed for screening.
 

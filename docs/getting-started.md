@@ -4,7 +4,7 @@ This guide walks you through installing and running StockPulse for the first tim
 
 ## Prerequisites
 
-- **Node.js 18+** (tested on 22)
+- **Node.js 20+** (see `package.json` `engines`)
 - **pnpm** (package manager — install via `npm install -g pnpm` or Corepack)
 - Optional: **Ollama** for AI insights, **Upstox developer account** for live trading
 
@@ -67,9 +67,9 @@ Live trading requires an Upstox developer account. See [Upstox Trading](upstox-t
 
 ## Where data lives
 
-- **SQLite database**: `./data/stockpulse.db` (auto-created)
-- **Cached prices**: Yahoo Finance API (no local storage)
-- The `data/` folder is gitignored — it holds your local cache and broker tokens.
+- **SQLite database**: `./data/stockpulse.db` (auto-created; Broker session + Fundamentals cache)
+- **Quotes and history**: Yahoo Finance API (not stored locally)
+- The `data/` folder is gitignored — it holds your local cache and Broker session.
 
 ## Troubleshooting
 

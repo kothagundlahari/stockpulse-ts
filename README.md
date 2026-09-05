@@ -37,9 +37,9 @@ node dist/server.js   # run the built server (after pnpm build)
 
 | Feature | Status | Description |
 |---|---|---|
-| NIFTY 500 universe | ✅ | Symbol list fetched live from the NSE index CSV; per-symbol fundamentals from Yahoo, cached |
-| Personality screeners | ✅ | 8 classic investor personalities over the NIFTY 50 |
-| Screener | ✅ | Filterable by market cap, PE, PB, ROE, debt/equity, revenue growth, dividend yield |
+| NIFTY 500 Universe | ✅ | Symbol list fetched live from the NSE index CSV; per-symbol Fundamentals from Yahoo, 24h store TTL |
+| Personality runs | ✅ | 8 classic investor Personalities over the NIFTY 500 Universe |
+| Screener | ✅ | Criteria: market cap, PE, PB, ROE, debt/equity, revenue growth, dividend yield |
 | Live quotes & charts | ✅ | Yahoo Finance chart endpoint, NSE symbols |
 | Backtesting | ✅ | SMA crossover / buy-and-hold, no look-ahead bias |
 | Holding recommendations | ✅ | Buy/hold/sell guidance for existing positions |
@@ -51,19 +51,19 @@ node dist/server.js   # run the built server (after pnpm build)
 
 The server exposes a JSON API alongside the dashboard (all under `http://localhost:8787`):
 
-- `GET /api/personalities` — the 8 personality screeners
-- `GET /api/personalities/:slug` — results for one personality
-- `GET /api/screen?<criteria>` — run the screener with optional filters
+- `GET /api/personalities` — Personality metadata, match counts, ranked stocks
+- `GET /api/personalities/:slug` — one Personality run
+- `GET /api/screen?<criteria>` — Criteria Screener run (`/api/screener` is an alias)
 - `GET /api/quote?symbol=` — live quote
-- `GET /api/backtest?symbol=&strategy=` — run a backtest
+- `GET /api/backtest?symbol=&range=` — SMA-crossover backtest
 - `GET /api/news` — aggregated news feed
-- `GET /api/portfolio` — live portfolio from the broker
-- `GET /api/orders` — recent orders from the broker
-- `GET /api/ai?symbol=&fundamentals=` — optional local AI analysis
+- `GET /api/portfolio` — holdings + advisory Recommendations from the Broker
+- `GET /api/orders` — recent orders from the Broker
+- `GET /api/ai` — optional local AI availability
 - `GET /callback` — automated Upstox OAuth 2.0 redirect handler
-- `GET /api/broker` / `POST /api/broker/auth` — Upstox auth state + manual OAuth callback
-- `POST /api/broker/disconnect` — disconnect broker session and clear stored token
-- `POST /api/trade` — place a trade through the broker
+- `GET /api/broker` / `POST /api/broker/auth` — Broker session status + manual OAuth callback
+- `POST /api/broker/disconnect` — drop the Broker session
+- `POST /api/trade` — place an Order (`confirm: true` required)
 
 ## Documentation
 
@@ -72,7 +72,7 @@ The server exposes a JSON API alongside the dashboard (all under `http://localho
 - [Development Guide](docs/development.md)
 - [Data Sources](docs/data-sources.md)
 - [Screeners](docs/screeners.md)
-- [Personality Screeners](docs/personalities.md)
+- [Personalities](docs/personalities.md)
 - [Backtesting](docs/backtesting.md)
 - [Web Dashboard](docs/dashboard.md)
 - [AI Insights](docs/ai-insights.md)
@@ -81,13 +81,13 @@ The server exposes a JSON API alongside the dashboard (all under `http://localho
 ## Project Structure
 
 ```
-researchTool-ts/
+stockpulse-ts/
 ├── src/
-│   ├── engines/        # Pure business logic, no I/O (screener, backtest, holding-recommendation)
-│   ├── services/       # External integrations (Yahoo, Upstox, Ollama, news, SQLite)
-│   ├── data/           # NIFTY 500 universe + NIFTY 50 personality filters
+│   ├── engines/        # Pure logic: screener, backtest, recommendations, assemblePortfolio
+│   ├── services/       # I/O: Yahoo, Broker adapters, portfolio intake, Ollama, news, SQLite
+│   ├── data/           # NIFTY 500 Universe + Personality definitions
 │   ├── types/          # Zod schema + inferred TypeScript types
-│   └── server.ts       # Local web dashboard + JSON API (no framework)
+│   └── server.ts       # HTTP transport + JSON API (no framework)
 ├── public/             # Dashboard static assets (index.html, app.js, style.css)
 ├── tests/              # Vitest test suites
 ├── docs/               # Documentation
