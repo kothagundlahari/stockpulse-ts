@@ -20,7 +20,6 @@ pnpm start:server    # prod: node dist/server.js (run `pnpm build` first)
 |---|---|
 | **Quotes** | Live Quote: last price, change %, open/high/low, volume for any symbol |
 | **Personalities** | Every Personality with its Candidate count and ranked Candidates (P/E, ROE, sector, score) |
-| **Backtest** | SMA-crossover Backtest over a chosen range with return, max drawdown, win rate, and per-Round-trip P&L |
 | **News** | Latest headlines for a symbol |
 | **Portfolio** | Holdings with live P&L, per-holding Recommendations, Order panel, and Order history |
 
@@ -46,7 +45,6 @@ GET /api/personalities
 GET /api/personalities/:id
 GET /api/screen?minMarketCap=500000&maxPe=30&minRoe=15
 GET /api/screener?minMarketCap=500000&maxPe=30&minRoe=15
-GET /api/backtest?symbol=TCS&range=1y
 GET /api/news?symbol=TCS&limit=10
 GET /api/ai
 ```
@@ -71,7 +69,7 @@ The `POST /api/trade` endpoint requires `confirm: true` in the request body. If 
 
 - `src/server.ts` — HTTP transport: routing, JSON handling, static files.
 - `public/index.html`, `public/style.css`, `public/app.js` — the browser front end (plain HTML/CSS/JS, no build step).
-- Handlers delegate to `loadPortfolio`, `Screener`, `BacktestEngine`, `YahooFinanceService`, and `DatabaseService`.
+- Handlers delegate to `loadPortfolio`, `Screener`, `YahooFinanceService`, and `DatabaseService`.
 
 ## Security notes
 

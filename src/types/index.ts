@@ -69,14 +69,3 @@ export const CriteriaSchema = z.object({
 });
 
 export type Criteria = z.infer<typeof CriteriaSchema>;
-
-export const BacktestConfigSchema = z.object({
-  symbol: z.string(),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime(),
-  initialCapital: z.number().positive(),
-  strategy: z.enum(["sma_crossover", "momentum", "rsi"]),
-  parameters: z.record(z.string(), z.number()).optional(),
-});
-
-export type BacktestConfig = z.infer<typeof BacktestConfigSchema>;

@@ -1,7 +1,6 @@
 import axios from "axios";
 import YahooFinance from "yahoo-finance2";
-import type { DailyPrice } from "../engines/backtest.js";
-import type { Fundamentals, Quote } from "../types/index.js";
+import type { Fundamentals, HistoricalPrice, Quote } from "../types/index.js";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
@@ -61,7 +60,7 @@ export class YahooFinanceService {
     };
   }
 
-  async getHistoricalPrices(symbol: string, range: string = "1mo"): Promise<DailyPrice[]> {
+  async getHistoricalPrices(symbol: string, range: string = "1mo"): Promise<HistoricalPrice[]> {
     const ticker = `${symbol}.NS`;
     const response = await axios.get(`${this.chartUrl}/${ticker}`, {
       params: {

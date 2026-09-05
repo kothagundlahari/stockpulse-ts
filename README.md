@@ -41,7 +41,6 @@ node dist/server.js   # run the built server (after pnpm build)
 | Personality runs | ✅ | 8 classic investor Personalities over the NIFTY 500 Universe |
 | Screener | ✅ | Criteria: market cap, PE, PB, ROE, debt/equity, revenue growth, dividend yield |
 | Live quotes & charts | ✅ | Yahoo Finance chart endpoint, NSE symbols |
-| Backtesting | ✅ | SMA crossover / buy-and-hold, no look-ahead bias |
 | Holding recommendations | ✅ | BUY_MORE / HOLD / SELL on existing Holdings, graded by Confidence |
 | News | ✅ | Google News + MoneyControl RSS feeds |
 | AI insights | ✅ | Optional local Ollama inference (no cloud calls) |
@@ -55,7 +54,6 @@ The server exposes a JSON API alongside the dashboard (all under `http://localho
 - `GET /api/personalities/:slug` — one Personality run (`candidates` ranked by score)
 - `GET /api/screen?<criteria>` — Criteria Screener run (`/api/screener` is an alias)
 - `GET /api/quote?symbol=` — live Quote
-- `GET /api/backtest?symbol=&range=` — SMA-crossover Backtest (`roundTrips`)
 - `GET /api/news` — aggregated news feed
 - `GET /api/portfolio` — Holdings + advisory Recommendations from the Broker
 - `GET /api/orders` — recent Orders from the Broker
@@ -74,7 +72,6 @@ The server exposes a JSON API alongside the dashboard (all under `http://localho
 - [Data Sources](docs/data-sources.md)
 - [Screeners](docs/screeners.md)
 - [Personalities](docs/personalities.md)
-- [Backtesting](docs/backtesting.md)
 - [Web Dashboard](docs/dashboard.md)
 - [AI Insights](docs/ai-insights.md)
 - [Live Trading (Upstox)](docs/upstox-trading.md)
@@ -84,7 +81,7 @@ The server exposes a JSON API alongside the dashboard (all under `http://localho
 ```
 stockpulse-ts/
 ├── src/
-│   ├── engines/        # Pure logic: screener, backtest, recommendations, assemblePortfolio
+│   ├── engines/        # Pure logic: screener, recommendations, assemblePortfolio
 │   ├── services/       # I/O: Yahoo, Broker adapters, portfolio intake, Ollama, news, SQLite
 │   ├── data/           # NIFTY 500 Universe + Personality definitions
 │   ├── types/          # Zod schema + inferred TypeScript types

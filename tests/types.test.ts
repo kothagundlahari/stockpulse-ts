@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  BacktestConfigSchema,
-  CriteriaSchema,
-  QuoteSchema,
-  StockSchema,
-} from "../src/types/index.js";
+import { CriteriaSchema, QuoteSchema, StockSchema } from "../src/types/index.js";
 
 describe("Stock", () => {
   it("validates a correct stock", () => {
@@ -85,41 +80,6 @@ describe("Criteria", () => {
   it("rejects invalid min pe", () => {
     const result = CriteriaSchema.safeParse({
       minPe: "not a number",
-    });
-    expect(result.success).toBe(false);
-  });
-});
-
-describe("BacktestConfig", () => {
-  it("validates a correct config", () => {
-    const result = BacktestConfigSchema.safeParse({
-      symbol: "RELIANCE",
-      startDate: "2024-01-01T00:00:00Z",
-      endDate: "2024-12-31T00:00:00Z",
-      initialCapital: 100000,
-      strategy: "sma_crossover",
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects negative capital", () => {
-    const result = BacktestConfigSchema.safeParse({
-      symbol: "RELIANCE",
-      startDate: "2024-01-01T00:00:00Z",
-      endDate: "2024-12-31T00:00:00Z",
-      initialCapital: -100000,
-      strategy: "sma_crossover",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects invalid strategy", () => {
-    const result = BacktestConfigSchema.safeParse({
-      symbol: "RELIANCE",
-      startDate: "2024-01-01T00:00:00Z",
-      endDate: "2024-12-31T00:00:00Z",
-      initialCapital: 100000,
-      strategy: "invalid",
     });
     expect(result.success).toBe(false);
   });

@@ -395,45 +395,6 @@ async function loadPersonalities() {
   }
 }
 
-// Backtest
-document.getElementById("bt-fetch").addEventListener("click", async () => {
-  const symbol = document.getElementById("bt-symbol").value;
-  const range = document.getElementById("bt-range").value;
-  const el = document.getElementById("bt-result");
-  el.innerHTML = "<p>Running…</p>";
-  try {
-    const res = await fetch(`/api/backtest?symbol=${encodeURIComponent(symbol)}&range=${range}`);
-    if (!res.ok) throw new Error("Backtest failed");
-    const data = await res.json();
-    const r = data.result;
-    const retCls = r.totalReturn >= 0 ? "positive" : "negative";
-    el.innerHTML = `
-      <h3>${escapeHtml(symbol)} — ${range} (SMA Crossover)</h3>
-      <div class="metric-grid">
-        <div class="metric"><div class="label">Initial</div><div class="value">${money(r.initialCapital)}</div></div>
-        <div class="metric"><div class="label">Final</div><div class="value">${money(r.finalCapital)}</div></div>
-        <div class="metric ${retCls}"><div class="label">Return</div><div class="value">${r.totalReturn >= 0 ? "+" : ""}${r.totalReturn.toFixed(2)}%</div></div>
-        <div class="metric"><div class="label">Max DD</div><div class="value negative">${r.maxDrawdown.toFixed(2)}%</div></div>
-        <div class="metric"><div class="label">Round-trips</div><div class="value">${r.roundTrips.length}</div></div>
-        <div class="metric"><div class="label">Win Rate</div><div class="value">${r.winRate.toFixed(1)}%</div></div>
-      </div>
-      ${r.roundTrips.length ? renderRoundTrips(r.roundTrips) : "<p>No round-trips executed.</p>"}`;
-  } catch (e) {
-    el.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
-  }
-});
-
-function renderRoundTrips(roundTrips) {
-  return `<table><thead><tr><th>Entry</th><th>Exit</th><th>P&L</th></tr></thead><tbody>
-    ${roundTrips
-      .map((t, i) => {
-        const cls = t.pnl >= 0 ? "positive" : "negative";
-        return `<tr><td>${escapeHtml(t.entryDate)}</td><td>${escapeHtml(t.exitDate)}</td><td class="${cls}">${t.pnl >= 0 ? "+" : ""}${money(t.pnl)}</td></tr>`;
-      })
-      .join("")}
-  </tbody></table>`;
-}
-
 // News
 document.getElementById("news-fetch").addEventListener("click", async () => {
   const symbol = document.getElementById("news-symbol").value;

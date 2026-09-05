@@ -15,7 +15,6 @@
     <nav class="tabs">
       <button class="tab-btn active" data-tab="quotes">Quotes</button>
       <button class="tab-btn" data-tab="personalities">Personalities</button>
-      <button class="tab-btn" data-tab="backtest">Backtest</button>
       <button class="tab-btn" data-tab="news">News</button>
       <button class="tab-btn" data-tab="portfolio">Portfolio</button>
     </nav>
@@ -34,21 +33,6 @@
       <section id="tab-personalities" class="tab-panel">
         <p class="hint">Screen the NIFTY 500 by classic investor personalities.</p>
         <div id="personality-list"></div>
-      </section>
-
-      <!-- Backtest -->
-      <section id="tab-backtest" class="tab-panel">
-        <div class="row">
-          <input id="bt-symbol" placeholder="e.g. TCS" value="TCS" />
-          <select id="bt-range">
-            <option value="3mo">3 months</option>
-            <option value="6mo">6 months</option>
-            <option value="1y" selected>1 year</option>
-            <option value="2y">2 years</option>
-          </select>
-          <button id="bt-fetch" class="btn">Run Backtest</button>
-        </div>
-        <div id="bt-result" class="card"></div>
       </section>
 
       <!-- News -->

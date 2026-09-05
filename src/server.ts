@@ -5,9 +5,7 @@ import http from "node:http";
 import https from "node:https";
 import path from "node:path";
 import tls from "node:tls";
-import { z } from "zod";
 import { getNifty500Fundamentals } from "./data/nifty500.js";
-import { BacktestEngine } from "./engines/backtest.js";
 import { screener } from "./engines/screener.js";
 import { connectUpstox, disconnectUpstox, getBroker } from "./services/broker.js";
 import type { Broker } from "./services/broker-types.js";
@@ -16,31 +14,11 @@ import { fetchStockNews } from "./services/news.js";
 import { OllamaService } from "./services/ollama.js";
 import { loadPortfolio } from "./services/portfolio.js";
 import { YahooFinanceService } from "./services/yahoo-finance.js";
-import {
-  type Criteria,
-  CriteriaSchema,
-  type Fundamentals,
-  HistoricalPriceSchema,
-  QuoteSchema,
-} from "./types/index.js";
+import { type Criteria, CriteriaSchema, type Fundamentals, QuoteSchema } from "./types/index.js";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 
 const REAL_PUBLIC_DIR = path.resolve(fs.realpathSync(PUBLIC_DIR));
-
-const VALID_RANGES = new Set([
-  "1d",
-  "5d",
-  "1mo",
-  "3mo",
-  "6mo",
-  "1y",
-  "2y",
-  "5y",
-  "10y",
-  "ytd",
-  "max",
-]);
 
 /** Allow-listed NSE ticker characters: blocks path/URL manipulation in outbound requests. */
 export function assertValidSymbol(symbol: string): boolean {
@@ -495,38 +473,6 @@ export async function router(
       return;
     }
     sendJson(res, 200, parsed.data);
-    return;
-  }
-
-  if (pathname === "/api/backtest") {
-    const symbol = searchParams.get("symbol")?.toUpperCase();
-    const range = searchParams.get("range") ?? "1y";
-    if (!symbol) {
-      sendJson(res, 400, { error: "Missing ?symbol=X" });
-      return;
-    }
-    if (!assertValidSymbol(symbol)) {
-      sendJson(res, 400, { error: "Invalid symbol" });
-      return;
-    }
-    if (!VALID_RANGES.has(range)) {
-      sendJson(res, 400, {
-        error: `Invalid ?range=${range}. Valid values: ${[...VALID_RANGES].join(", ")}`,
-      });
-      return;
-    }
-    const prices = await deps.yahoo.getHistoricalPrices(symbol, range);
-    if (prices.length === 0) {
-      sendJson(res, 404, { error: `No price data for ${symbol}` });
-      return;
-    }
-    const parsedPrices = z.array(HistoricalPriceSchema).safeParse(prices);
-    if (!parsedPrices.success) {
-      sendJson(res, 502, { error: `Invalid historical price data: ${parsedPrices.error.message}` });
-      return;
-    }
-    const result = new BacktestEngine().runDefault(parsedPrices.data);
-    sendJson(res, 200, { symbol, range, result });
     return;
   }
 

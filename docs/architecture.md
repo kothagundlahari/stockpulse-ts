@@ -13,7 +13,7 @@ StockPulse is deliberately simple. It avoids the multi-layered service/view-mode
 │   HTTP transport: routing, JSON, static     │
 ├─────────────────────────────────────────────┤
 │               Engines (pure logic)          │
-│   screener │ backtest │ holding-recommendation
+│   screener │ holding-recommendation         │
 │   assemblePortfolio                         │
 ├─────────────────────────────────────────────┤
 │            Services (integrations)          │
@@ -30,19 +30,18 @@ StockPulse is deliberately simple. It avoids the multi-layered service/view-mode
 
 ### 1. Web Dashboard (`public/`)
 - Plain HTML/CSS/JS served by the Node server — no build step, no framework.
-- Tabs: Quotes, Personalities, Backtest, News, Portfolio.
+- Tabs: Quotes, Personalities, News, Portfolio.
 - The Portfolio tab shows holdings with live P&L, per-holding Recommendations, an order panel with confirmation modal, and order history.
 
 ### 2. Server (`src/server.ts`)
 - Raw Node `http`/`https` server — no Express or other framework.
 - Transport only: method/path matching, security headers, body-size limits, symbol validation, JSON serialization.
-- Delegates domain work to engines and services (`Screener`, `loadPortfolio`, `BacktestEngine.runDefault`, `getBroker`).
+- Delegates domain work to engines and services (`Screener`, `loadPortfolio`, `getBroker`).
 
 ### 3. Engines (`src/engines/`)
 Pure business logic, no I/O:
 - **`screener.ts`** — Criteria runs (`runCriteria`) return Fundamentals of passing Universe members; Personality runs (`runPersonality`, `runAllPersonalities`) emit Candidates
 - **`personality-ranker.ts`** — sector-median benchmarks and ranked Personality scores
-- **`backtest.ts`** — strategy over price history (`GET /api/backtest`); emits Round-trips, never Orders
 - **`holding-recommendation.ts`** — advisory BUY_MORE / HOLD / SELL on an existing Holding
 - **`portfolio.ts`** — `assemblePortfolio`: weights and Recommendations from already-resolved observations
 

@@ -5,7 +5,7 @@
     "node": ">=20"
   },
   "packageManager": "pnpm@11.25.0",
-  "description": "Web dashboard for Indian stock research with screeners, backtesting, portfolio, and AI insights",
+  "description": "Web dashboard for Indian stock research with screeners, portfolio, and AI insights",
   "type": "module",
   "scripts": {
     "build": "tsc",
@@ -29,8 +29,7 @@
     "stocks",
     "india",
     "research",
-    "screening",
-    "backtesting"
+    "screening"
   ],
   "author": "",
   "license": "MIT",

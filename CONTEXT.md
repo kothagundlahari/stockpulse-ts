@@ -37,25 +37,13 @@ A Universe member that passed a Screener run. For a Personality run it also has 
 _Avoid_: Hit, match (as a noun for the row), ranked stock
 
 **Confidence**:
-How strongly a Recommendation is held — low, medium, or high. It grades the Recommendation; it is not a Signal.
+How strongly a Recommendation is held — low, medium, or high. It grades the Recommendation.
 _Avoid_: Conviction, certainty, score (when meaning this grade)
 
 ### Decision (research)
 
-**Signal**:
-A backtest strategy's decision at one time step on a historical price path — `BUY` / `SELL` / `HOLD`. About what a strategy would do on a chart, not a position the user owns.
-_Avoid_: Alert, trigger, recommendation
-
-**Backtest**:
-Simulated application of Signals along a historical price path, producing round-trips and an equity curve. It never creates an Order.
-_Avoid_: Paper trade, replay (when meaning this simulation)
-
-**Round-trip**:
-A completed simulated entry and exit on a price path during a Backtest. Distinct from an Order, which is live execution.
-_Avoid_: Trade, transaction
-
 **Recommendation**:
-An action proposed for a Holding the user already owns — `BUY_MORE` / `HOLD` / `SELL` — graded by Confidence. Distinct from a Signal. Acting on it is a separate, manual step; it becomes an Order only when the user confirms.
+An action proposed for a Holding the user already owns — `BUY_MORE` / `HOLD` / `SELL` — graded by Confidence. Acting on it is a separate, manual step; it becomes an Order only when the user confirms.
 _Avoid_: Advice, suggestion, signal
 
 **Portfolio**:
@@ -73,7 +61,7 @@ An open intraday / short-term exposure, not yet delivered. Same economic idea as
 _Avoid_: Holding (when meaning intraday), open trade
 
 **Order**:
-The execution record of a buy or sell — side, identity, status, time. A Signal or Recommendation is a decision; an Order is what happened.
+The execution record of a buy or sell — side, identity, status, time. A Recommendation is a decision; an Order is what happened.
 _Avoid_: Trade, transaction, exchange
 
 **Order request**:
@@ -88,4 +76,4 @@ _Avoid_: Upstox (when referring to the role, not the live venue)
 Whether a Broker is currently authorized to read holdings and accept Order requests. Establishing it is authorization; dropping it is disconnect.
 _Avoid_: Token (when meaning the whole session), login, connection
 
-> **Decision vs. execution.** "Buy"/"sell" appears in the decision vocabulary (`Signal`, `Recommendation`) and the execution vocabulary (`Order`, `Order request`) on purpose. A decision never becomes an Order without an explicit, confirmed step.
+> **Decision vs. execution.** "Buy"/"sell" appears in the decision vocabulary (`Recommendation`) and the execution vocabulary (`Order`, `Order request`) on purpose. A decision never becomes an Order without an explicit, confirmed step.

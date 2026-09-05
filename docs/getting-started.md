@@ -35,7 +35,7 @@ pnpm dev:server   # starts the server without opening a browser
 
 `PORT` is configurable via the `PORT` environment variable (default `8787`).
 
-Once running, the dashboard opens in your browser with tabs for Quotes, Personalities, Backtest, News, and Portfolio.
+Once running, the dashboard opens in your browser with tabs for Quotes, Personalities, News, and Portfolio.
 
 ### Production mode
 
@@ -73,8 +73,8 @@ Live Orders require an Upstox developer account. See [Upstox Trading](upstox-tra
 
 ## Troubleshooting
 
-**Backtest returns no data**
-The Yahoo Finance endpoint may be rate-limiting. Wait a moment and retry. Check your internet connection.
+**Quotes or news return no data**
+The Yahoo Finance or news endpoint may be rate-limiting. Wait a moment and retry. Check your internet connection.
 
 **Ollama insight panel not showing**
 Start Ollama with `ollama serve` and pull a model first. The panel is only visible when Ollama is running locally.
