@@ -10,6 +10,7 @@ describe("removed journal frontend and API surfaces", () => {
     expect(indexHtml).not.toContain('data-tab="journal"');
     expect(indexHtml).not.toContain('id="tab-journal"');
     expect(serverTs).not.toContain("/api/journal");
+    expect(appJs).not.toContain("/api/journal");
     expect(appJs).not.toContain("loadJournal");
   });
 });
