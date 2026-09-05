@@ -49,6 +49,8 @@ export function assertValidSymbol(symbol: string): boolean {
   return /^[A-Z0-9.-]{1,20}$/.test(symbol);
 }
 
+export const MAX_BODY_BYTES = 100 * 1024;
+
 const PORT = Number(process.env.PORT ?? 8787);
 
 const OAUTH_STATE_COOKIE = "sp_oauth_state";
@@ -94,11 +96,26 @@ function applySecurityHeaders(req: http.IncomingMessage, res: http.ServerRespons
   }
 }
 
+/** Thrown by readBody when a request body exceeds MAX_BODY_BYTES. */
+class PayloadTooLargeError extends Error {
+  name = "PayloadTooLargeError";
+}
+
 /** Parse JSON request body. */
 export async function readBody(req: http.IncomingMessage): Promise<unknown> {
+  const declared = Number(req.headers["content-length"]);
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    throw new PayloadTooLargeError(`Request body exceeds ${MAX_BODY_BYTES} bytes`);
+  }
   const chunks: Buffer[] = [];
+  let size = 0;
   for await (const chunk of req) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+    const buf = typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer);
+    size += buf.length;
+    if (size > MAX_BODY_BYTES) {
+      throw new PayloadTooLargeError(`Request body exceeds ${MAX_BODY_BYTES} bytes`);
+    }
+    chunks.push(buf);
   }
   if (chunks.length === 0) return {};
   try {
@@ -137,6 +154,10 @@ export function wrap(
   return (req: http.IncomingMessage, res: http.ServerResponse) => {
     applySecurityHeaders(req, res);
     Promise.resolve(handler(req, res)).catch((err) => {
+      if (err instanceof PayloadTooLargeError) {
+        sendJson(res, 413, { error: err.message });
+        return;
+      }
       sendJson(res, 500, { error: err instanceof Error ? err.message : "Unknown error" });
     });
   };

@@ -1065,3 +1065,41 @@ describe("HTTP security headers", () => {
     }
   });
 });
+
+describe("request body cap", () => {
+  it("POST /api/trade with a body larger than 100KB returns 413", async () => {
+    const big = {
+      symbol: "A".repeat(100 * 1024),
+      side: "BUY",
+      qty: 1,
+      type: "MARKET",
+      confirm: true,
+    };
+    const res = await fetch(`${base}/api/trade`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(big),
+    });
+    expect(res.status).toBe(413);
+    const body = await res.json();
+    expect(body.error).toMatch(/large|exceeds/i);
+  });
+
+  it("POST /api/trade aborts an oversized chunked body with 413", async () => {
+    const port = Number(new URL(base).port);
+    const statusCode = await new Promise<number>((resolve, reject) => {
+      const req = http.request(
+        { host: "127.0.0.1", port, path: "/api/trade", method: "POST" },
+        (res) => {
+          expect(res.statusCode).toBe(413);
+          res.resume();
+          res.on("end", () => resolve(res.statusCode ?? 0));
+        },
+      );
+      req.on("error", () => resolve(0));
+      req.write(Buffer.alloc(120 * 1024, "a"));
+      req.end();
+    });
+    expect(statusCode).toBe(413);
+  });
+});
