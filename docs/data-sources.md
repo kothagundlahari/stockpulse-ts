@@ -1,6 +1,6 @@
 # Data Sources
 
-StockPulse pulls data from multiple free sources to build a complete picture of the Indian equity market. Only Upstox (for live trading) requires credentials.
+StockPulse pulls data from multiple free sources to build a complete picture of Indian (NIFTY) equities. Only the live Broker adapter (Upstox) requires credentials.
 
 | Source | Data provided | Auth required | Cost |
 |---|---|---|---|
@@ -8,7 +8,7 @@ StockPulse pulls data from multiple free sources to build a complete picture of 
 | NSE Index CSV | NIFTY 500 constituent symbol list | No | Free |
 | Google News RSS | Stock-specific news | No | Free |
 | MoneyControl RSS | Market commentary | No | Free |
-| Upstox Developer API | Holdings, positions, orders, trade placement | Yes (OAuth) | Free* |
+| Upstox Developer API | Holdings, Positions, Orders, Order placement | Yes (OAuth) | Free* |
 | Ollama (local) | AI insights | No | Free |
 
 \* Upstox has no per-call cost for personal use. The API key and secret are required.
@@ -20,7 +20,7 @@ Used for core market data: live quotes, historical OHLCV, per-symbol fundamental
 **Important:** Yahoo now rejects requests without a browser-style `User-Agent` header (returning `404`/`429`), and the raw `quote` endpoint is unreliable. This service therefore:
 
 - Sends a browser `User-Agent` and `Accept: application/json` on every request
-- Sources **live quotes from chart metadata** (`/v8/finance/chart`, range `1d`), which is more permissive and returns the same fields (LTP, prev close, day high/low, volume, timestamp) plus the per-bar open
+- Sources **live Quotes from chart metadata** (`/v8/finance/chart`, range `1d`), which is more permissive and returns the same fields (last price, prev close, day high/low, volume, timestamp) plus the per-bar open
 
 **Endpoints used:**
 - `GET /v8/finance/chart/{symbol}.NS?range=...&interval=1d` — quote + historical OHLCV

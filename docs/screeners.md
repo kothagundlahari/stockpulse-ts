@@ -4,7 +4,7 @@ A Screener run applies either ad-hoc **Criteria** or a curated **Personality** o
 
 ## Universe
 
-The Screener operates over the **dynamic NIFTY 500 Universe** (`src/data/nifty500.ts`). Symbols come from the NSE index CSV. Fundamentals come from Yahoo Finance; `DatabaseService` enforces a 24-hour freshness window internally. There is no hardcoded stock data.
+The Screener operates over the **dynamic NIFTY 500 Universe** (`src/data/nifty500.ts`). Symbols come from the NSE index CSV. Fundamentals come from Yahoo Finance; `DatabaseService` enforces a 24-hour freshness window internally. There is no hardcoded Universe roster.
 
 ## Available Criteria
 
@@ -22,8 +22,8 @@ Every field is **optional**. Only the Criteria you specify are applied.
 
 ## Behavior rules
 
-- A stock is included only if it passes **all** provided Criteria (AND logic).
-- If a stock is **missing the required field**, it fails that criterion. For example, `{ maxPe: 20 }` excludes any stock whose `peRatio` is `undefined`.
+- A Universe member is included only if it passes **all** provided Criteria (AND logic).
+- If a member is **missing the required Fundamentals field**, it fails that criterion. For example, `{ maxPe: 20 }` excludes any member whose `peRatio` is `undefined`.
 - An empty Criteria bag returns the entire Universe.
 
 ## Using it via the API
@@ -33,15 +33,17 @@ GET /api/screen?minMarketCap=500000&maxPe=30&minRoe=15&maxDebtToEquity=0.5
 GET /api/screener?minMarketCap=500000&maxPe=30&minRoe=15&maxDebtToEquity=0.5
 ```
 
-`/api/screener` is an alias of `/api/screen`. Response:
+`/api/screener` is an alias of `/api/screen`. Response is the passing members as Fundamentals (Criteria does not score):
 
 ```json
 {
   "total": 500,
   "matches": 12,
-  "stocks": [...]
+  "stocks": []
 }
 ```
+
+Personality runs use a different shape: each Personality includes `candidates` (Fundamentals plus a sector-relative score). See [Personalities](personalities.md).
 
 Available query parameters: `minMarketCap`, `maxMarketCap`, `minPe`, `maxPe`, `minPb`, `maxPb`, `minDividendYield`, `minRoe`, `maxDebtToEquity`, `minRevenueGrowth`.
 
@@ -59,5 +61,5 @@ import { Screener } from "./src/engines/screener.js";
 
 const screener = new Screener();
 const matched = screener.runCriteria(universe, { minPe: 10, maxPe: 25 });
-const ranked = screener.runPersonality(universe, "buffett");
+const candidates = screener.runPersonality(universe, "buffett");
 ```

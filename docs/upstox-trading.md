@@ -1,6 +1,6 @@
 # Upstox Trading
 
-StockPulse connects to **Upstox** (the sole broker) via the Upstox Developer API for live holdings, positions, order history, and trade execution. Trading is deliberately guarded — you opt in, and it is your responsibility to review orders before they go live.
+StockPulse connects to **Upstox** as the live Broker adapter via the Upstox Developer API for Holdings, Positions, Order history, and Order placement. Placement is deliberately gated — you opt in, and it is your responsibility to review an Order request before it goes live.
 
 > **Warning:** Live trading involves real money. This is a research tool. Always review orders before confirming, and trade only what you can afford to lose.
 
@@ -45,8 +45,8 @@ Upstox automatically redirects back to `http://localhost:8787/callback?code=...`
 | `POST /api/broker/auth` | POST | Completes OAuth manually — accepts `{ code }`, stores the access token |
 | `POST /api/broker/disconnect` | POST | Clears stored broker token and resets session |
 | `GET /api/portfolio` | GET | Holdings merged with live Yahoo quotes and per-holding recommendations |
-| `GET /api/orders` | GET | Recent orders from Upstox (trade history) |
-| `POST /api/trade` | POST | Place a real order (requires `confirm: true`) |
+| `GET /api/orders` | GET | Recent Orders from the live Broker |
+| `POST /api/trade` | POST | Place an Order (requires `confirm: true`) |
 
 ## Order parameters (`POST /api/trade`)
 
@@ -101,5 +101,5 @@ Access tokens are stored in the `broker_tokens` table of `./data/stockpulse.db` 
 - **OAuth state.** The authorization flow uses a random `state` parameter (validated on `/callback`) to prevent account-linking CSRF.
 - **Never commit secrets.** Store API keys in environment variables or a `.env` file (gitignored).
 - **Tokens in SQLite only.** The access token is written only to the local gitignored database — never to source code, logs, or version control.
-- **Confirm before trading.** Every order requires an explicit `confirm: true` in the request body. The dashboard enforces this with a confirmation modal.
+- **Confirm before an Order.** Every Order request requires an explicit `confirm: true` in the request body. The dashboard enforces this with a confirmation modal.
 - Orders are submitted as-is. The server does not add slippage protection — use limit orders and review before confirming.

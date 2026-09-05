@@ -42,23 +42,23 @@ node dist/server.js   # run the built server (after pnpm build)
 | Screener | ✅ | Criteria: market cap, PE, PB, ROE, debt/equity, revenue growth, dividend yield |
 | Live quotes & charts | ✅ | Yahoo Finance chart endpoint, NSE symbols |
 | Backtesting | ✅ | SMA crossover / buy-and-hold, no look-ahead bias |
-| Holding recommendations | ✅ | Buy/hold/sell guidance for existing positions |
+| Holding recommendations | ✅ | BUY_MORE / HOLD / SELL on existing Holdings, graded by Confidence |
 | News | ✅ | Google News + MoneyControl RSS feeds |
 | AI insights | ✅ | Optional local Ollama inference (no cloud calls) |
-| Live trading | ✅ | Upstox OAuth auth + quote/orders/portfolio/trade via the Upstox broker client |
+| Live Orders | ✅ | Broker session (Upstox live adapter) + confirmed Order requests |
 
 ## API
 
 The server exposes a JSON API alongside the dashboard (all under `http://localhost:8787`):
 
-- `GET /api/personalities` — Personality metadata, match counts, ranked stocks
-- `GET /api/personalities/:slug` — one Personality run
+- `GET /api/personalities` — Personality metadata, match counts, Candidates
+- `GET /api/personalities/:slug` — one Personality run (`candidates` ranked by score)
 - `GET /api/screen?<criteria>` — Criteria Screener run (`/api/screener` is an alias)
-- `GET /api/quote?symbol=` — live quote
-- `GET /api/backtest?symbol=&range=` — SMA-crossover backtest
+- `GET /api/quote?symbol=` — live Quote
+- `GET /api/backtest?symbol=&range=` — SMA-crossover Backtest (`roundTrips`)
 - `GET /api/news` — aggregated news feed
-- `GET /api/portfolio` — holdings + advisory Recommendations from the Broker
-- `GET /api/orders` — recent orders from the Broker
+- `GET /api/portfolio` — Holdings + advisory Recommendations from the Broker
+- `GET /api/orders` — recent Orders from the Broker
 - `GET /api/ai` — optional local AI availability
 - `GET /callback` — automated Upstox OAuth 2.0 redirect handler
 - `GET /api/broker` / `POST /api/broker/auth` — Broker session status + manual OAuth callback
@@ -69,6 +69,7 @@ The server exposes a JSON API alongside the dashboard (all under `http://localho
 
 - [Getting Started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
+- [Domain glossary](CONTEXT.md)
 - [Development Guide](docs/development.md)
 - [Data Sources](docs/data-sources.md)
 - [Screeners](docs/screeners.md)

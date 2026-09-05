@@ -24,7 +24,7 @@ GET /api/personalities               # all personalities with match counts and C
 GET /api/personalities/graham        # one Personality run
 ```
 
-The HTTP handlers delegate to `Screener.runAllPersonalities` / `runPersonalityDetail`.
+The HTTP handlers delegate to `Screener.runAllPersonalities` / `runPersonalityDetail`. Each Personality object includes `candidates` (Fundamentals plus score), not Stock identity records.
 
 ## How a Personality is defined
 

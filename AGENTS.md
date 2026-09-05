@@ -19,7 +19,7 @@ pnpm dev:server     # run dev server via tsx without opening browser (default po
 
 ## Architecture
 
-- `src/engines/` — Pure business logic, no I/O (`screener`, `backtest`, `holding-recommendation`, `assemblePortfolio`). Keep testable pure logic here rather than in server routes.
+- `src/engines/` — Pure business logic, no I/O (`screener`, `backtest`, `holding-recommendation`, `assemblePortfolio`). Screener Personality runs emit Candidates; Backtests emit Round-trips. Keep testable pure logic here rather than in server routes.
 - `src/services/` — Thin I/O wrappers: Yahoo Finance, Upstox live adapter (`upstox.ts`), Broker factory (`broker.ts` / `getBroker`), in-memory Broker adapter, portfolio intake (`loadPortfolio`), SQLite (`database.ts`), news RSS, and Ollama.
 - `src/data/` — Dynamic NIFTY 500 Universe (live NSE CSV + Yahoo Fundamentals) and investor Personality definitions.
 - `src/server.ts` — Raw Node `http`/`https` server (no Express) routing JSON API endpoints and serving static files from `public/`. Transport only: domain work is delegated to engines and services.
@@ -39,7 +39,7 @@ pnpm dev:server     # run dev server via tsx without opening browser (default po
 
 ## Docs
 
-Consult `docs/` (`architecture.md`, `development.md`, `upstox-trading.md`) for detailed feature guides and domain workflows.
+Consult `CONTEXT.md` for domain terms, `docs/adr/` for decisions, and `docs/` (`architecture.md`, `development.md`, `upstox-trading.md`) for feature guides.
 
 ## Agent skills
 

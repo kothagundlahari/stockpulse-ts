@@ -65,7 +65,7 @@ Every shared data shape is a **Zod schema** with an inferred TypeScript type. Va
 
 ## Dynamic NIFTY 500 Universe
 
-Screener and Personality runs operate over a **dynamic Universe** (`src/data/nifty500.ts`). Symbols come from the NSE index CSV (`ind_nifty500list.csv`). Per-symbol Fundamentals come from Yahoo Finance. Freshness is evaluated inside `DatabaseService` (default 24 hours). There is no hardcoded stock data.
+Screener and Personality runs operate over a **dynamic Universe** (`src/data/nifty500.ts`). Symbols come from the NSE index CSV (`ind_nifty500list.csv`). Per-symbol Fundamentals come from Yahoo Finance. Freshness is evaluated inside `DatabaseService` (default 24 hours). There is no hardcoded Universe roster.
 
 ## Broker seam
 

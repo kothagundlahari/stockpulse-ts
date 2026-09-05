@@ -25,7 +25,7 @@ This guarantees the engines and services are correct by construction and safe to
 ### Test structure
 
 - `tests/types.test.ts` — Zod schema validation
-- `tests/screener.test.ts` — Criteria and Personality Screener runs
+- `tests/screener.test.ts` — Criteria and Personality runs
 - `tests/personality-ranker.test.ts` — sector-benchmarked Personality scores
 - `tests/personalities.test.ts` — Personality match assertions
 - `tests/backtest.test.ts` — Backtest engine (Signals and Round-trips)
@@ -35,6 +35,9 @@ This guarantees the engines and services are correct by construction and safe to
 - `tests/broker.test.ts` — Broker factory / session
 - `tests/database.test.ts` — SQLite persistence and freshness (temp DB)
 - `tests/yahoo-finance.test.ts` — API client (mocked axios)
+- `tests/server.test.ts` — HTTP transport (JSON keys, status codes, headers)
+- `tests/broker-types.test.ts` — Broker / Holding / Order request shapes
+- `tests/frontend-surfaces.test.ts` — dashboard surface contracts
 
 Run a single file:
 
