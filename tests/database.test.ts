@@ -1,63 +1,40 @@
 import fs from "node:fs";
+import path from "node:path";
+import SqliteDb from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseService } from "../src/services/database.js";
 
-const TEST_DB = "./data/test-stockpulse.db";
+const JOURNAL_REMOVAL_DB = "./data/test-journal-removal.db";
 
-describe("DatabaseService", () => {
-  let db: DatabaseService;
-
-  beforeEach(() => {
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
+describe("journal removal migration", () => {
+  const cleanup = () => {
+    for (const suffix of ["", "-wal", "-shm"]) {
+      const path = `${JOURNAL_REMOVAL_DB}${suffix}`;
+      if (fs.existsSync(path)) {
+        fs.unlinkSync(path);
+      }
     }
-    db = new DatabaseService(TEST_DB);
-  });
+  };
 
-  afterEach(() => {
+  beforeEach(cleanup);
+  afterEach(cleanup);
+
+  it("drops the legacy journal table during migration", () => {
+    fs.mkdirSync(path.dirname(JOURNAL_REMOVAL_DB), { recursive: true });
+    const legacyDb = new SqliteDb(JOURNAL_REMOVAL_DB);
+    legacyDb.exec("CREATE TABLE journal (id TEXT PRIMARY KEY, notes TEXT)");
+    legacyDb.prepare("INSERT INTO journal (id, notes) VALUES (?, ?)").run("1", "legacy");
+    legacyDb.close();
+
+    const db = new DatabaseService(JOURNAL_REMOVAL_DB);
+    const migratedDb = new SqliteDb(JOURNAL_REMOVAL_DB);
+    const journalTable = migratedDb
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journal'")
+      .get();
+    migratedDb.close();
     db.close();
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
-    }
-  });
 
-  it("adds and retrieves journal entries", () => {
-    db.addJournalEntry({
-      id: "1",
-      symbol: "RELIANCE",
-      date: "2024-01-01T00:00:00Z",
-      action: "BUY",
-      price: 2500,
-      quantity: 10,
-      notes: "Test buy",
-    });
-
-    const entries = db.getJournalEntries("RELIANCE");
-    expect(entries).toHaveLength(1);
-    expect(entries[0].symbol).toBe("RELIANCE");
-    expect(entries[0].price).toBe(2500);
-  });
-
-  it("returns all entries when no symbol specified", () => {
-    db.addJournalEntry({
-      id: "1",
-      symbol: "RELIANCE",
-      date: "2024-01-01T00:00:00Z",
-      action: "BUY",
-      price: 2500,
-      quantity: 10,
-    });
-    db.addJournalEntry({
-      id: "2",
-      symbol: "TCS",
-      date: "2024-01-02T00:00:00Z",
-      action: "BUY",
-      price: 3500,
-      quantity: 5,
-    });
-
-    const entries = db.getJournalEntries();
-    expect(entries).toHaveLength(2);
+    expect(journalTable).toBeUndefined();
   });
 });
 

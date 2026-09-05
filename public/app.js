@@ -422,32 +422,6 @@ function renderTrades(trades) {
   </tbody></table>`;
 }
 
-// Journal
-async function loadJournal() {
-  const el = document.getElementById("journal-list");
-  if (!el) return;
-  try {
-    const res = await fetch("/api/journal");
-    if (!res.ok) {
-      const errData = await res.json().catch(() => null);
-      throw new Error(errData?.error || "Failed to load journal");
-    }
-    const data = await res.json();
-    if (!data || !Array.isArray(data.entries) || !data.entries.length) {
-      el.innerHTML = "<p>No journal entries yet.</p>";
-      return;
-    }
-    el.innerHTML = data.entries
-      .map((e) => {
-        const cls = e.action === "BUY" ? "positive" : "negative";
-        return `<div class="entry"><strong>${e.symbol}</strong> <span class="${cls}">${e.action}</span> ${e.quantity} @ ${money(e.price)} · ${e.date.split("T")[0]}</div>`;
-      })
-      .join("");
-  } catch (e) {
-    el.innerHTML = `<p class="error">${e.message}</p>`;
-  }
-}
-
 // News
 document.getElementById("news-fetch").addEventListener("click", async () => {
   const symbol = document.getElementById("news-symbol").value;
@@ -789,7 +763,6 @@ async function loadAiAvailability() {
 
 // Startup
 loadPersonalities();
-loadJournal();
 loadBrokerStatus();
 loadPortfolio();
 loadOrders();

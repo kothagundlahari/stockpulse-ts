@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import SqliteDb from "better-sqlite3";
-import type { Fundamentals, JournalEntry } from "../types/index.js";
+import type { Fundamentals } from "../types/index.js";
 
 /**
- * SQLite storage for the trade journal, broker auth tokens, and fundamentals cache.
+ * SQLite storage for broker auth tokens and fundamentals cache.
  * Uses better-sqlite3 for synchronous, high-performance access.
  */
 export class DatabaseService {
@@ -22,19 +22,7 @@ export class DatabaseService {
 
   private migrate(): void {
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS journal (
-        id TEXT PRIMARY KEY,
-        symbol TEXT NOT NULL,
-        date TEXT NOT NULL,
-        action TEXT NOT NULL CHECK (action IN ('BUY', 'SELL')),
-        price REAL NOT NULL,
-        quantity INTEGER NOT NULL,
-        pnl REAL,
-        notes TEXT,
-        emotions TEXT,
-        lessons TEXT,
-        created_at TEXT DEFAULT (datetime('now'))
-      );
+      DROP TABLE IF EXISTS journal;
 
       CREATE TABLE IF NOT EXISTS broker_tokens (
         broker TEXT PRIMARY KEY,
@@ -48,35 +36,6 @@ export class DatabaseService {
         updated_at INTEGER NOT NULL
       );
     `);
-  }
-
-  addJournalEntry(entry: JournalEntry): void {
-    this.db
-      .prepare(
-        `INSERT INTO journal (id, symbol, date, action, price, quantity, pnl, notes, emotions, lessons)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        entry.id,
-        entry.symbol,
-        entry.date,
-        entry.action,
-        entry.price,
-        entry.quantity,
-        entry.pnl ?? null,
-        entry.notes ?? null,
-        entry.emotions ?? null,
-        entry.lessons ?? null,
-      );
-  }
-
-  getJournalEntries(symbol?: string): JournalEntry[] {
-    if (symbol) {
-      return this.db
-        .prepare("SELECT * FROM journal WHERE symbol = ? ORDER BY date DESC")
-        .all(symbol) as JournalEntry[];
-    }
-    return this.db.prepare("SELECT * FROM journal ORDER BY date DESC").all() as JournalEntry[];
   }
 
   setBrokerToken(broker: string, token: string): void {

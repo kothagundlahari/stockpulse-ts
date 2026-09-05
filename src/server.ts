@@ -451,14 +451,6 @@ export async function router(
     return;
   }
 
-  if (pathname === "/api/journal") {
-    const db = deps.db ?? new DatabaseService();
-    const entries = db.getJournalEntries();
-    if (!deps.db) db.close();
-    sendJson(res, 200, { entries });
-    return;
-  }
-
   if (pathname === "/api/news") {
     const symbol = searchParams.get("symbol")?.toUpperCase();
     if (!symbol) {

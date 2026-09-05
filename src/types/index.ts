@@ -80,18 +80,3 @@ export const BacktestConfigSchema = z.object({
 });
 
 export type BacktestConfig = z.infer<typeof BacktestConfigSchema>;
-
-export const JournalEntrySchema = z.object({
-  id: z.string(),
-  symbol: z.string(),
-  date: z.string().datetime(),
-  action: z.enum(["BUY", "SELL"]),
-  price: z.number().nonnegative(),
-  quantity: z.number().positive(),
-  pnl: z.number().optional(),
-  notes: z.string().optional(),
-  emotions: z.string().optional(),
-  lessons: z.string().optional(),
-});
-
-export type JournalEntry = z.infer<typeof JournalEntrySchema>;

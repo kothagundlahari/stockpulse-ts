@@ -21,7 +21,6 @@ pnpm start:server    # prod: node dist/server.js (run `pnpm build` first)
 | **Quotes** | Live price, change %, open/high/low, volume for any symbol |
 | **Personalities** | Every personality with its match count and the matching NIFTY 500 stocks (P/E, ROE, sector) |
 | **Backtest** | SMA-crossover backtest over a chosen range with return, max drawdown, win rate, and per-trade P&L |
-| **Journal** | Trade journal entries from the local SQLite database |
 | **News** | Latest headlines for a symbol |
 | **Portfolio** | Holdings with live P&L, per-holding recommendations, trade panel, and trade history |
 
@@ -47,7 +46,6 @@ GET /api/personalities
 GET /api/personalities/:id
 GET /api/screen?minMarketCap=500000&maxPe=30&minRoe=15
 GET /api/backtest?symbol=TCS&range=1y
-GET /api/journal
 GET /api/news?symbol=TCS&limit=10
 GET /api/ai
 ```

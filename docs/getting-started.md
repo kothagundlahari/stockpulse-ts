@@ -35,7 +35,7 @@ pnpm dev:server   # starts the server without opening a browser
 
 `PORT` is configurable via the `PORT` environment variable (default `8787`).
 
-Once running, the dashboard opens in your browser with tabs for Quotes, Personalities, Backtest, Journal, News, and Portfolio.
+Once running, the dashboard opens in your browser with tabs for Quotes, Personalities, Backtest, News, and Portfolio.
 
 ### Production mode
 
@@ -69,7 +69,7 @@ Live trading requires an Upstox developer account. See [Upstox Trading](upstox-t
 
 - **SQLite database**: `./data/stockpulse.db` (auto-created)
 - **Cached prices**: Yahoo Finance API (no local storage)
-- The `data/` folder is gitignored — it holds your local journal, screeners, and broker tokens.
+- The `data/` folder is gitignored — it holds your local cache and broker tokens.
 
 ## Troubleshooting
 
