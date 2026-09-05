@@ -95,7 +95,8 @@ Access tokens are stored in the `broker_tokens` table of `./data/stockpulse.db` 
 
 ## Security notes
 
-- **Local only.** The server binds to all interfaces by default and has no auth. Do not expose port 8787 to the internet.
+- **Local only.** The server binds to `127.0.0.1` by default (override with `HOST`). It has no auth; do not expose port 8787 to the internet.
+- **OAuth state.** The authorization flow uses a random `state` parameter (validated on `/callback`) to prevent account-linking CSRF.
 - **Never commit secrets.** Store API keys in environment variables or a `.env` file (gitignored).
 - **Tokens in SQLite only.** The access token is written only to the local gitignored database — never to source code, logs, or version control.
 - **Confirm before trading.** Every order requires an explicit `confirm: true` in the request body. The dashboard enforces this with a confirmation modal.

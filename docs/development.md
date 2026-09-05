@@ -81,6 +81,8 @@ Run `pnpm check` after making changes — it catches both lint and type errors w
 | `UPSTOX_API_KEY` | Upstox OAuth app key |
 | `UPSTOX_API_SECRET` | Upstox OAuth app secret |
 | `UPSTOX_REDIRECT_URI` | OAuth redirect URI (default: `http://localhost:8787/callback`) |
+| `PORT` | Server port (default `8787`) |
+| `HOST` | Bind address (default `127.0.0.1`) |
 
 Load them from a `.env` (gitignored) or export them in your shell. Never commit them.
 

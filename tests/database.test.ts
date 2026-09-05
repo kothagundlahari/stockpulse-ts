@@ -140,3 +140,26 @@ describe("fundamentals cache", () => {
     db.close();
   });
 });
+
+describe("database file permissions", () => {
+  const DB_PATH = "./data/test-perms.db";
+
+  const cleanup = () => {
+    for (const suffix of ["", "-wal", "-shm"]) {
+      const p = `${DB_PATH}${suffix}`;
+      if (fs.existsSync(p)) {
+        fs.unlinkSync(p);
+      }
+    }
+  };
+
+  beforeEach(cleanup);
+  afterEach(cleanup);
+
+  it("creates the database file with 0600 permissions", () => {
+    const db = new DatabaseService(DB_PATH);
+    db.close();
+    const mode = fs.statSync(DB_PATH).mode & 0o777;
+    expect(mode).toBe(0o600);
+  });
+});
