@@ -1,57 +1,103 @@
-import { describe, expect, it, vi } from "vitest";
-import { connectUpstox, disconnectUpstox, getUpstoxClient } from "../src/services/broker.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { BrokerSessionStore } from "../src/services/broker.js";
+import {
+  connectUpstox,
+  createInMemoryBroker,
+  disconnectUpstox,
+  getBroker,
+  getUpstoxClient,
+  resetBrokerFactory,
+  setBroker,
+} from "../src/services/broker.js";
+import { UpstoxClient } from "../src/services/upstox.js";
 
-let storedToken: string | null = "stored-token";
-const mockSetToken = vi.fn((_b: string, tok: string) => {
-  storedToken = tok;
-});
-const mockDeleteToken = vi.fn((_b: string) => {
-  storedToken = null;
-});
+class FakeLiveBroker extends UpstoxClient {
+  private token: string | undefined;
 
-vi.mock("../src/services/database.js", () => ({
-  DatabaseService: class {
-    getBrokerToken(b: string) {
-      return b === "upstox" ? storedToken : null;
-    }
-    setBrokerToken(b: string, tok: string) {
-      mockSetToken(b, tok);
-    }
-    deleteBrokerToken(b: string) {
-      mockDeleteToken(b);
-    }
-    close() {}
-  },
-}));
+  constructor(token?: string) {
+    super({
+      apiKey: "test",
+      apiSecret: "test",
+      redirectUri: "http://localhost/callback",
+      accessToken: token,
+    });
+    this.token = token;
+  }
 
-vi.mock("../src/services/upstox.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/services/upstox.js")>();
-  return {
-    ...actual,
-    createUpstoxClient: (token?: string) => ({
-      name: "upstox",
-      isAuthenticated: Boolean(token),
-      authenticate: vi.fn().mockResolvedValue(undefined),
-      getAccessToken: () => "mock-auth-token",
-    }),
+  override get isAuthenticated(): boolean {
+    return Boolean(this.token);
+  }
+
+  override async authenticate(code: string): Promise<void> {
+    if (!code) throw new Error("Invalid authorization code");
+    this.token = "mock-auth-token";
+  }
+
+  override getAccessToken(): string {
+    return this.token ?? "";
+  }
+}
+
+function memorySession(initial: string | null = "stored-token"): BrokerSessionStore & {
+  value: string | null;
+} {
+  const store = {
+    value: initial,
+    getToken: () => store.value,
+    setToken: (token: string) => {
+      store.value = token;
+    },
+    deleteToken: () => {
+      store.value = null;
+    },
   };
-});
+  return store;
+}
 
 describe("broker factory", () => {
-  it("loads a persisted access token into the client", () => {
+  beforeEach(() => {
+    resetBrokerFactory({
+      sessionStore: memorySession("stored-token"),
+      createLive: (token) => new FakeLiveBroker(token),
+    });
+  });
+
+  afterEach(() => {
+    resetBrokerFactory();
+  });
+
+  it("loads a persisted access token into the live Broker adapter", () => {
     const client = getUpstoxClient();
     expect(client.isAuthenticated).toBe(true);
+    expect(getBroker().isAuthenticated).toBe(true);
   });
 
   it("connectUpstox authenticates and persists token", async () => {
+    const session = memorySession(null);
+    resetBrokerFactory({
+      sessionStore: session,
+      createLive: (token) => new FakeLiveBroker(token),
+    });
     await connectUpstox("test-code");
-    expect(mockSetToken).toHaveBeenCalledWith("upstox", "mock-auth-token");
+    expect(session.value).toBe("mock-auth-token");
+    expect(getBroker().isAuthenticated).toBe(true);
   });
 
   it("disconnectUpstox deletes token and resets client", () => {
+    const session = memorySession("stored-token");
+    resetBrokerFactory({
+      sessionStore: session,
+      createLive: (token) => new FakeLiveBroker(token),
+    });
     disconnectUpstox();
-    expect(mockDeleteToken).toHaveBeenCalledWith("upstox");
-    const client = getUpstoxClient();
-    expect(client.isAuthenticated).toBe(false);
+    expect(session.value).toBeNull();
+    expect(getUpstoxClient().isAuthenticated).toBe(false);
+  });
+
+  it("supports setting and getting generic Broker instance", () => {
+    const memBroker = createInMemoryBroker();
+    setBroker(memBroker);
+    expect(getBroker()).toBe(memBroker);
+    setBroker(null);
   });
 });

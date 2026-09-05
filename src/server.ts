@@ -7,17 +7,14 @@ import path from "node:path";
 import tls from "node:tls";
 import { z } from "zod";
 import { getNifty500Fundamentals } from "./data/nifty500.js";
-import { PERSONALITIES } from "./data/personalities.js";
-import { BacktestEngine, smaCrossover } from "./engines/backtest.js";
-import { recommendHolding, smaFromDaily } from "./engines/holding-recommendation.js";
-import { rankPersonalityCandidates } from "./engines/personality-ranker.js";
-import { ScreenerEngine } from "./engines/screener.js";
-import { connectUpstox, disconnectUpstox, getUpstoxClient } from "./services/broker.js";
+import { BacktestEngine } from "./engines/backtest.js";
+import { screener } from "./engines/screener.js";
+import { connectUpstox, disconnectUpstox, getBroker } from "./services/broker.js";
 import type { Broker } from "./services/broker-types.js";
 import { DatabaseService } from "./services/database.js";
 import { fetchStockNews } from "./services/news.js";
 import { OllamaService } from "./services/ollama.js";
-import type { UpstoxClient } from "./services/upstox.js";
+import { loadPortfolio } from "./services/portfolio.js";
 import { YahooFinanceService } from "./services/yahoo-finance.js";
 import {
   type Fundamentals,
@@ -57,7 +54,7 @@ const OAUTH_STATE_COOKIE = "sp_oauth_state";
 const HOST = process.env.HOST ?? "127.0.0.1";
 
 export interface ServerDeps {
-  upstox: UpstoxClient | Broker;
+  upstox: Broker;
   yahoo: YahooFinanceService;
   getFundamentals: () => Promise<Fundamentals[]>;
   db?: DatabaseService;
@@ -186,7 +183,7 @@ function handleBrokerError(e: unknown, res: http.ServerResponse, deps: ServerDep
     } else {
       disconnectUpstox();
     }
-    deps.upstox = getUpstoxClient();
+    deps.upstox = getBroker();
     sendJson(res, 401, {
       error: "Upstox session expired. Please re-authorize.",
       expired: true,
@@ -209,17 +206,7 @@ export async function router(
   if (pathname === "/api/personalities") {
     try {
       const universe = await deps.getFundamentals();
-      const result = PERSONALITIES.map((p) => {
-        const rankedStocks = rankPersonalityCandidates(p.id, p.filter, universe);
-        return {
-          id: p.id,
-          name: p.name,
-          description: p.description,
-          matches: rankedStocks.length,
-          stocks: rankedStocks,
-        };
-      });
-      sendJson(res, 200, { total: universe.length, personalities: result });
+      sendJson(res, 200, screener.runAllPersonalities(universe));
     } catch (e) {
       console.error("[server] Failed to load personalities:", e);
       sendJson(res, 500, {
@@ -232,26 +219,22 @@ export async function router(
   }
 
   if (pathname.startsWith("/api/personalities/")) {
-    const id = pathname.split("/").pop();
-    const personality = PERSONALITIES.find((p) => p.id === id);
-    if (!personality) {
+    const id = pathname.split("/").pop() ?? "";
+    if (!screener.getPersonality(id)) {
       sendJson(res, 404, { error: `Unknown personality: ${id}` });
       return;
     }
     const universe = await deps.getFundamentals();
-    const rankedStocks = rankPersonalityCandidates(personality.id, personality.filter, universe);
-    sendJson(res, 200, {
-      id: personality.id,
-      name: personality.name,
-      description: personality.description,
-      total: universe.length,
-      matches: rankedStocks.length,
-      stocks: rankedStocks,
-    });
+    const detail = screener.runPersonalityDetail(universe, id);
+    if (!detail) {
+      sendJson(res, 404, { error: `Unknown personality: ${id}` });
+      return;
+    }
+    sendJson(res, 200, detail);
     return;
   }
 
-  if (pathname === "/api/screen") {
+  if (pathname === "/api/screen" || pathname === "/api/screener") {
     const universe = await deps.getFundamentals();
     const numericParams = [
       "minMarketCap",
@@ -289,8 +272,7 @@ export async function router(
     if (searchParams.has("minRevenueGrowth"))
       criteria.minRevenueGrowth = Number(searchParams.get("minRevenueGrowth"));
 
-    const screener = new ScreenerEngine();
-    const matched = screener.filter(universe, criteria);
+    const matched = screener.runCriteria(universe, criteria);
     sendJson(res, 200, { total: universe.length, matches: matched.length, stocks: matched });
     return;
   }
@@ -333,7 +315,7 @@ export async function router(
         ? await deps.connectUpstox(code)
         : await (async () => {
             await connectUpstox(code);
-            return getUpstoxClient();
+            return getBroker();
           })();
       deps.upstox = client;
       clearStateCookie();
@@ -380,7 +362,7 @@ export async function router(
         ? await deps.connectUpstox(code)
         : await (async () => {
             await connectUpstox(code);
-            return getUpstoxClient();
+            return getBroker();
           })();
       deps.upstox = client;
       sendJson(res, 200, { ok: true });
@@ -396,39 +378,15 @@ export async function router(
     } else {
       disconnectUpstox();
     }
-    deps.upstox = getUpstoxClient();
+    deps.upstox = getBroker();
     sendJson(res, 200, { ok: true });
     return;
   }
 
   if (pathname === "/api/portfolio") {
     try {
-      const holdings = await deps.upstox.getHoldings();
-      const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-      const enriched = await Promise.all(
-        holdings.map(async (h) => {
-          let fundamentals: Fundamentals | undefined;
-          let price = { current: h.ltp, sma10: 0, sma50: 0 };
-          try {
-            const cached = deps.db?.getCachedFundamentals(h.symbol);
-            if (cached && Date.now() - cached.updatedAt < 24 * 60 * 60 * 1000) {
-              fundamentals = cached.data;
-            } else {
-              fundamentals = await deps.yahoo.getFundamentals(h.symbol);
-              deps.db?.saveFundamentals([fundamentals]);
-            }
-            const daily = await deps.yahoo.getHistoricalPrices(h.symbol, "3mo");
-            const sma = smaFromDaily(daily);
-            price = { current: h.ltp, sma10: sma.sma10, sma50: sma.sma50 };
-          } catch {
-            // keep defaults on error
-          }
-          const weight = totalValue > 0 ? (h.currentValue / totalValue) * 100 : 0;
-          const recommendation = recommendHolding(fundamentals, price, weight);
-          return { ...h, recommendation };
-        }),
-      );
-      sendJson(res, 200, { total: totalValue, holdings: enriched });
+      const snapshot = await loadPortfolio(deps.upstox, deps.yahoo, deps.db);
+      sendJson(res, 200, snapshot);
     } catch (e) {
       handleBrokerError(e, res, deps);
     }
@@ -560,8 +518,7 @@ export async function router(
       sendJson(res, 502, { error: `Invalid historical price data: ${parsedPrices.error.message}` });
       return;
     }
-    const engine = new BacktestEngine();
-    const result = engine.run(prices, 100000, smaCrossover);
+    const result = new BacktestEngine().runDefault(parsedPrices.data);
     sendJson(res, 200, { symbol, range, result });
     return;
   }
@@ -631,7 +588,7 @@ export async function createServer(opts: ServerOptions = {}): Promise<http.Serve
     upstox:
       opts.deps?.upstox ??
       (realBroker
-        ? getUpstoxClient()
+        ? getBroker()
         : {
             name: "upstox",
             isAuthenticated: false,
@@ -669,7 +626,7 @@ export async function createServer(opts: ServerOptions = {}): Promise<http.Serve
       opts.deps?.connectUpstox ??
       (async (code: string) => {
         await connectUpstox(code);
-        return getUpstoxClient();
+        return getBroker();
       }),
     disconnectUpstox: opts.deps?.disconnectUpstox ?? (() => disconnectUpstox()),
   };

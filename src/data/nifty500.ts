@@ -2,7 +2,26 @@ import { parse } from "csv-parse/sync";
 import { DatabaseService } from "../services/database.js";
 import { YahooFinanceService } from "../services/yahoo-finance.js";
 import type { Fundamentals } from "../types/index.js";
-import { mapWithConcurrency } from "./async.js";
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
 
 const NSE_CSV_URL = "https://nsearchives.nseindia.com/content/indices/ind_nifty500list.csv";
 const CONCURRENCY = 4;
@@ -74,20 +93,10 @@ export async function getNifty500Fundamentals(
 ): Promise<Fundamentals[]> {
   const database = getDb(db);
 
-  if (!force && fundCache && Date.now() - fundCache.fetchedAt < CACHE_TTL_MS) {
-    return fundCache.data;
-  }
-
   if (!force) {
-    const cached = database.getAllCachedFundamentals();
-    if (cached.length > 0) {
-      const now = Date.now();
-      const oldest = Math.min(...cached.map((c) => c.updatedAt));
-      if (now - oldest < CACHE_TTL_MS) {
-        const data = cached.map((c) => c.data);
-        fundCache = { fetchedAt: oldest, data };
-        return data;
-      }
+    const fresh = database.getAllFreshFundamentals(CACHE_TTL_MS);
+    if (fresh.length > 0) {
+      return fresh;
     }
   }
 
@@ -100,6 +109,8 @@ export async function getNifty500Fundamentals(
         try {
           return await yf.getFundamentals(symbol);
         } catch {
+          const freshItem = database.getFreshFundamentals(symbol, SYMBOL_TTL_MS);
+          if (freshItem) return freshItem;
           const cachedItem = database.getCachedFundamentals(symbol);
           if (cachedItem) return cachedItem.data;
           return { symbol } as Fundamentals;

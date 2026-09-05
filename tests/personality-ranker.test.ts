@@ -174,4 +174,11 @@ describe("PersonalityRanker", () => {
     // growthPts: clamp(0/40, 0.35, 1.0)*35 = 12.25, marginPts: 17.5, roePts: 15 -> raw = 44.75 -> 45
     expect(momentumZeroGrowth).toBe(45);
   });
+
+  it("throws for an unknown personality id", () => {
+    const benchmark = { medianOperatingMargin: 12, medianRoe: 15 };
+    expect(() =>
+      calculatePersonalityScore("unknown-philosophy", { symbol: "X" }, benchmark),
+    ).toThrow(/Unknown personality/);
+  });
 });

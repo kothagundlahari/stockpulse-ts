@@ -139,6 +139,67 @@ describe("fundamentals cache", () => {
 
     db.close();
   });
+
+  it("handles cache freshness and custom TTL policies via getFreshFundamentals", () => {
+    const db = new DatabaseService(DB_PATH);
+    expect(db.getFreshFundamentals("INFY")).toBeNull();
+
+    const now = Date.now();
+    db.saveFundamentals(
+      [
+        { symbol: "INFY", peRatio: 22.0, marketCap: 600000, roe: 28.0 },
+        { symbol: "WIPRO", peRatio: 18.5, marketCap: 250000, roe: 16.0 },
+      ],
+      now - 2 * 60 * 60 * 1000, // 2 hours ago
+    );
+
+    // Fresh within default 24h TTL
+    const infy = db.getFreshFundamentals("INFY");
+    expect(infy).not.toBeNull();
+    expect(infy?.symbol).toBe("INFY");
+    expect(infy?.peRatio).toBe(22.0);
+
+    // Expired with custom maxAge of 1 hour
+    const expiredCustom = db.getFreshFundamentals("INFY", 60 * 60 * 1000);
+    expect(expiredCustom).toBeNull();
+
+    // Fresh with custom maxAge of 3 hours
+    const freshCustom = db.getFreshFundamentals("INFY", 3 * 60 * 60 * 1000);
+    expect(freshCustom).not.toBeNull();
+    expect(freshCustom?.symbol).toBe("INFY");
+
+    // Stored 25 hours ago -> expired under default 24h TTL
+    db.saveFundamentals(
+      [{ symbol: "WIPRO", peRatio: 18.5, marketCap: 250000, roe: 16.0 }],
+      now - 25 * 60 * 60 * 1000,
+    );
+    expect(db.getFreshFundamentals("WIPRO")).toBeNull();
+
+    db.close();
+  });
+
+  it("returns the full Universe snapshot only when every row is fresh", () => {
+    const db = new DatabaseService(DB_PATH);
+    const now = Date.now();
+    db.saveFundamentals(
+      [
+        { symbol: "INFY", peRatio: 22 },
+        { symbol: "TCS", peRatio: 28 },
+      ],
+      now,
+    );
+    expect(
+      db
+        .getAllFreshFundamentals()
+        .map((row) => row.symbol)
+        .sort(),
+    ).toEqual(["INFY", "TCS"]);
+
+    db.saveFundamentals([{ symbol: "TCS", peRatio: 28 }], now - 25 * 60 * 60 * 1000);
+    expect(db.getAllFreshFundamentals()).toEqual([]);
+
+    db.close();
+  });
 });
 
 describe("database file permissions", () => {

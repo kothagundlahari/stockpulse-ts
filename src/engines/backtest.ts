@@ -50,6 +50,10 @@ export function smaCrossover(data: DailyPrice[], idx: number): Signal {
  * Processes price data sequentially and applies a strategy function.
  */
 export class BacktestEngine {
+  runDefault(prices: DailyPrice[], initialCapital: number = 100000): BacktestResult {
+    return this.run(prices, initialCapital, smaCrossover);
+  }
+
   run(
     prices: DailyPrice[],
     initialCapital: number,

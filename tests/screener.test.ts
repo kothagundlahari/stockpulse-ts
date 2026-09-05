@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ScreenerEngine } from "../src/engines/screener.js";
+import { Screener, ScreenerEngine, screener } from "../src/engines/screener.js";
 import type { Fundamentals } from "../src/types/index.js";
 
 const mockStocks: Fundamentals[] = [
@@ -126,6 +126,72 @@ describe("ScreenerEngine", () => {
     const engine = new ScreenerEngine();
     const results = engine.filter(stocksWithMissing, { maxPe: 20 });
     expect(results).toHaveLength(1);
-    expect(results[0].symbol).toBe("TEST2");
+    expect(results[0]?.symbol).toBe("TEST2");
+  });
+});
+
+describe("Unified Screener module", () => {
+  it("provides personality metadata via getPersonalities", () => {
+    const s = new Screener();
+    const personalities = s.getPersonalities();
+    expect(personalities.length).toBeGreaterThanOrEqual(8);
+    const buffett = personalities.find((p) => p.id === "buffett");
+    expect(buffett).toBeDefined();
+    expect(buffett?.name).toBe("Warren Buffett");
+  });
+
+  it("retrieves personality definition by id", () => {
+    expect(screener.getPersonality("buffett")).toBeDefined();
+    expect(screener.getPersonality("non-existent")).toBeUndefined();
+  });
+
+  it("runs criteria screening via runCriteria", () => {
+    const matched = screener.runCriteria(mockStocks, { minRoe: 20 });
+    expect(matched).toHaveLength(2);
+    expect(matched.map((m) => m.symbol)).toEqual(["TCS", "INFY"]);
+  });
+
+  it("runs personality screening returning stocks ranked by score descending", () => {
+    const universe: Fundamentals[] = [
+      {
+        symbol: "A",
+        sector: "IT",
+        roe: 25,
+        debtToEquity: 0.1,
+        operatingMargin: 20,
+        peRatio: 18,
+      },
+      {
+        symbol: "B",
+        sector: "IT",
+        roe: 30,
+        debtToEquity: 0.2,
+        operatingMargin: 25,
+        peRatio: 22,
+      },
+    ];
+    const ranked = screener.runPersonality(universe, "buffett");
+    expect(ranked).toHaveLength(2);
+    expect(ranked[0]?.score).toBeGreaterThanOrEqual(ranked[1]?.score ?? 0);
+  });
+
+  it("throws for unknown personality in runPersonality", () => {
+    expect(() => screener.runPersonality([], "unknown-philosophy")).toThrow(/Unknown personality/);
+  });
+
+  it("summarizes all personality runs via runAllPersonalities", () => {
+    const summary = screener.runAllPersonalities(mockStocks);
+    expect(summary.total).toBe(mockStocks.length);
+    expect(summary.personalities.length).toBeGreaterThanOrEqual(8);
+    for (const run of summary.personalities) {
+      expect(run.matches).toBe(run.stocks.length);
+    }
+  });
+
+  it("returns a personality detail run or undefined for unknown ids", () => {
+    const detail = screener.runPersonalityDetail(mockStocks, "buffett");
+    expect(detail?.id).toBe("buffett");
+    expect(detail?.total).toBe(mockStocks.length);
+    expect(screener.runPersonalityDetail(mockStocks, "unknown-philosophy")).toBeUndefined();
   });
 });

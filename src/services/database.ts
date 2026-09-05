@@ -71,6 +71,27 @@ export class DatabaseService {
     return { data: JSON.parse(row.data) as Fundamentals, updatedAt: row.updated_at };
   }
 
+  getFreshFundamentals(
+    symbol: string,
+    maxAgeMs: number = 24 * 60 * 60 * 1000,
+  ): Fundamentals | null {
+    const cached = this.getCachedFundamentals(symbol);
+    if (!cached) return null;
+    if (Date.now() - cached.updatedAt > maxAgeMs) return null;
+    return cached.data;
+  }
+
+  /**
+   * Returns every cached Fundamentals row if all are within maxAgeMs; otherwise [].
+   * Callers should treat an empty result as a cache miss (no date arithmetic).
+   */
+  getAllFreshFundamentals(maxAgeMs: number = 24 * 60 * 60 * 1000): Fundamentals[] {
+    const cached = this.getAllCachedFundamentals();
+    if (cached.length === 0) return [];
+    if (cached.some((row) => Date.now() - row.updatedAt > maxAgeMs)) return [];
+    return cached.map((row) => row.data);
+  }
+
   getAllCachedFundamentals(): { data: Fundamentals; updatedAt: number }[] {
     const rows = this.db.prepare("SELECT data, updated_at FROM fundamentals_cache").all() as {
       data: string;

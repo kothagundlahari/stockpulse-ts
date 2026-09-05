@@ -206,6 +206,13 @@ describe("HTTP API", () => {
     expect(Array.isArray(body.stocks)).toBe(true);
   });
 
+  it("GET /api/screener aliases /api/screen", async () => {
+    const res = await fetch(`${base}/api/screener?minPe=10&maxPe=20`);
+    expect(res.status).toBe(200);
+    const body = await readJson(res);
+    expect(Array.isArray(body.stocks)).toBe(true);
+  });
+
   it("GET /api/screen parses minRevenueGrowth parameter", async () => {
     const res = await fetch(`${base}/api/screen?minRevenueGrowth=15`);
     expect(res.status).toBe(200);
