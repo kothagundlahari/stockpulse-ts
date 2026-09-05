@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Screener, ScreenerEngine, screener } from "../src/engines/screener.js";
+import { Screener, screener } from "../src/engines/screener.js";
 import type { Fundamentals } from "../src/types/index.js";
 
 const mockStocks: Fundamentals[] = [
@@ -45,65 +45,65 @@ const mockStocks: Fundamentals[] = [
   },
 ];
 
-describe("ScreenerEngine", () => {
+describe("Screener", () => {
   it("returns all stocks when criteria is empty", () => {
-    const engine = new ScreenerEngine();
-    const results = engine.filter(mockStocks, {});
+    const engine = new Screener();
+    const results = engine.runCriteria(mockStocks, {});
     expect(results).toHaveLength(4);
   });
 
   it("filters by minimum market cap", () => {
-    const engine = new ScreenerEngine();
-    const results = engine.filter(mockStocks, { minMarketCap: 1000000 });
+    const engine = new Screener();
+    const results = engine.runCriteria(mockStocks, { minMarketCap: 1000000 });
     expect(results).toHaveLength(2);
     expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "HDFCBANK"]);
   });
 
   it("filters by maximum market cap", () => {
-    const engine = new ScreenerEngine();
-    const results = engine.filter(mockStocks, { maxMarketCap: 900000 });
+    const engine = new Screener();
+    const results = engine.runCriteria(mockStocks, { maxMarketCap: 900000 });
     expect(results).toHaveLength(2);
     expect(results.map((s) => s.symbol)).toEqual(["TCS", "INFY"]);
   });
 
   it("filters by PE ratio range", () => {
-    const engine = new ScreenerEngine();
-    const results = engine.filter(mockStocks, { minPe: 20, maxPe: 30 });
+    const engine = new Screener();
+    const results = engine.runCriteria(mockStocks, { minPe: 20, maxPe: 30 });
     expect(results).toHaveLength(3);
     expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "HDFCBANK", "INFY"]);
   });
 
   it("filters by minimum dividend yield", () => {
-    const engine = new ScreenerEngine();
-    const results = engine.filter(mockStocks, { minDividendYield: 1 });
+    const engine = new Screener();
+    const results = engine.runCriteria(mockStocks, { minDividendYield: 1 });
     expect(results).toHaveLength(2);
     expect(results.map((s) => s.symbol)).toEqual(["TCS", "INFY"]);
   });
 
   it("filters by minimum ROE", () => {
-    const engine = new ScreenerEngine();
-    const results = engine.filter(mockStocks, { minRoe: 20 });
+    const engine = new Screener();
+    const results = engine.runCriteria(mockStocks, { minRoe: 20 });
     expect(results).toHaveLength(2);
     expect(results.map((s) => s.symbol)).toEqual(["TCS", "INFY"]);
   });
 
   it("filters by minimum revenue growth", () => {
-    const engine = new ScreenerEngine();
-    const results = engine.filter(mockStocks, { minRevenueGrowth: 11 });
+    const engine = new Screener();
+    const results = engine.runCriteria(mockStocks, { minRevenueGrowth: 11 });
     expect(results).toHaveLength(2);
     expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "HDFCBANK"]);
   });
 
   it("filters by maximum debt to equity", () => {
-    const engine = new ScreenerEngine();
-    const results = engine.filter(mockStocks, { maxDebtToEquity: 0.3 });
+    const engine = new Screener();
+    const results = engine.runCriteria(mockStocks, { maxDebtToEquity: 0.3 });
     expect(results).toHaveLength(3);
     expect(results.map((s) => s.symbol)).toEqual(["RELIANCE", "TCS", "INFY"]);
   });
 
   it("combines multiple criteria", () => {
-    const engine = new ScreenerEngine();
-    const results = engine.filter(mockStocks, {
+    const engine = new Screener();
+    const results = engine.runCriteria(mockStocks, {
       minMarketCap: 800000,
       maxPe: 30,
       minRoe: 15,
@@ -113,8 +113,8 @@ describe("ScreenerEngine", () => {
   });
 
   it("returns empty array when no stocks match", () => {
-    const engine = new ScreenerEngine();
-    const results = engine.filter(mockStocks, { minMarketCap: 9999999 });
+    const engine = new Screener();
+    const results = engine.runCriteria(mockStocks, { minMarketCap: 9999999 });
     expect(results).toHaveLength(0);
   });
 
@@ -123,8 +123,8 @@ describe("ScreenerEngine", () => {
       { symbol: "TEST1", marketCap: 100000, peRatio: undefined },
       { symbol: "TEST2", marketCap: 200000, peRatio: 15 },
     ];
-    const engine = new ScreenerEngine();
-    const results = engine.filter(stocksWithMissing, { maxPe: 20 });
+    const engine = new Screener();
+    const results = engine.runCriteria(stocksWithMissing, { maxPe: 20 });
     expect(results).toHaveLength(1);
     expect(results[0]?.symbol).toBe("TEST2");
   });

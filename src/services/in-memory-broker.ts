@@ -1,5 +1,68 @@
 import type { Broker, Holding, Order, PlaceOrderParams, Position } from "./broker-types.js";
 
+const DEFAULT_MARK_PRICE = 100;
+
+interface Lot {
+  symbol: string;
+  quantity: number;
+  averagePrice: number;
+  ltp: number;
+  pnl: number;
+}
+
+function applyLotFill<T extends Lot>(
+  lots: T[],
+  side: "BUY" | "SELL",
+  symbol: string,
+  qty: number,
+  orderPrice: number,
+  adapters: {
+    create: (lot: Lot) => T;
+    update: (existing: T, lot: Lot) => T;
+  },
+): void {
+  const index = lots.findIndex((item) => item.symbol === symbol);
+  if (side === "BUY") {
+    const existing = index >= 0 ? lots[index] : undefined;
+    if (existing) {
+      const quantity = existing.quantity + qty;
+      const averagePrice =
+        (existing.quantity * existing.averagePrice + qty * orderPrice) / quantity;
+      const ltp = existing.ltp || orderPrice;
+      const pnl = quantity * ltp - quantity * averagePrice;
+      lots[index] = adapters.update(existing, { symbol, quantity, averagePrice, ltp, pnl });
+    } else {
+      lots.push(
+        adapters.create({
+          symbol,
+          quantity: qty,
+          averagePrice: orderPrice,
+          ltp: orderPrice,
+          pnl: 0,
+        }),
+      );
+    }
+    return;
+  }
+
+  const existing = index >= 0 ? lots[index] : undefined;
+  if (!existing) return;
+  const quantity = existing.quantity - qty;
+  if (quantity <= 0) {
+    lots.splice(index, 1);
+    return;
+  }
+  const ltp = existing.ltp || orderPrice;
+  const pnl = quantity * ltp - quantity * existing.averagePrice;
+  lots[index] = adapters.update(existing, {
+    symbol,
+    quantity,
+    averagePrice: existing.averagePrice,
+    ltp,
+    pnl,
+  });
+}
+
 export interface InMemoryBrokerOptions {
   holdings?: Holding[];
   positions?: Position[];
@@ -80,7 +143,7 @@ export class InMemoryBroker implements Broker {
   async placeOrder(params: PlaceOrderParams & { confirm: true }): Promise<{ id: string }> {
     this.assertAuthenticated();
     if (!params.confirm) {
-      throw new Error("Trade not confirmed. Pass confirm:true to place a real order.");
+      throw new Error("Order not confirmed. Pass confirm:true to place a real order.");
     }
     if (!params.symbol || typeof params.symbol !== "string") {
       throw new Error("Invalid symbol.");
@@ -92,7 +155,9 @@ export class InMemoryBroker implements Broker {
     const orderPrice =
       params.type === "LIMIT" && params.limitPrice !== undefined && params.limitPrice > 0
         ? params.limitPrice
-        : (this.holdings.find((h) => h.symbol === params.symbol)?.ltp ?? 100);
+        : (this.holdings.find((h) => h.symbol === params.symbol)?.ltp ??
+          this.positions.find((p) => p.symbol === params.symbol)?.ltp ??
+          DEFAULT_MARK_PRICE);
 
     const orderId = `inmem-ord-${this.nextOrderId++}`;
     const order: Order = {
@@ -106,115 +171,44 @@ export class InMemoryBroker implements Broker {
     };
 
     this.orders.push(order);
-    this.applyToHoldings(params.side, params.symbol, params.qty, orderPrice);
-    this.applyToPositions(params.side, params.symbol, params.qty, orderPrice);
+    applyLotFill(this.holdings, params.side, params.symbol, params.qty, orderPrice, {
+      create: (lot) => ({
+        symbol: lot.symbol,
+        quantity: lot.quantity,
+        averagePrice: lot.averagePrice,
+        ltp: lot.ltp,
+        pnl: lot.pnl,
+        pnlPercent: 0,
+        dayChange: 0,
+        dayChangePercent: 0,
+        currentValue: lot.quantity * lot.ltp,
+      }),
+      update: (existing, lot) => {
+        const currentValue = lot.quantity * existing.ltp;
+        return {
+          ...existing,
+          quantity: lot.quantity,
+          averagePrice: lot.averagePrice,
+          currentValue,
+          pnl: lot.pnl,
+          pnlPercent:
+            lot.quantity * lot.averagePrice === 0
+              ? 0
+              : (lot.pnl / (lot.quantity * lot.averagePrice)) * 100,
+        };
+      },
+    });
+    applyLotFill(this.positions, params.side, params.symbol, params.qty, orderPrice, {
+      create: (lot) => lot,
+      update: (existing, lot) => ({
+        ...existing,
+        quantity: lot.quantity,
+        averagePrice: lot.averagePrice,
+        pnl: lot.pnl,
+      }),
+    });
 
     return { id: orderId };
-  }
-
-  private applyToHoldings(
-    side: "BUY" | "SELL",
-    symbol: string,
-    qty: number,
-    orderPrice: number,
-  ): void {
-    const existingHoldingIndex = this.holdings.findIndex((h) => h.symbol === symbol);
-    if (side === "BUY") {
-      const existing = existingHoldingIndex >= 0 ? this.holdings[existingHoldingIndex] : undefined;
-      if (existing) {
-        const newQty = existing.quantity + qty;
-        const newAvg = (existing.quantity * existing.averagePrice + qty * orderPrice) / newQty;
-        const currentVal = newQty * existing.ltp;
-        const pnl = currentVal - newQty * newAvg;
-        const pnlPercent = (pnl / (newQty * newAvg)) * 100;
-        this.holdings[existingHoldingIndex] = {
-          ...existing,
-          quantity: newQty,
-          averagePrice: newAvg,
-          currentValue: currentVal,
-          pnl,
-          pnlPercent,
-        };
-      } else {
-        const currentVal = qty * orderPrice;
-        this.holdings.push({
-          symbol,
-          quantity: qty,
-          averagePrice: orderPrice,
-          ltp: orderPrice,
-          pnl: 0,
-          pnlPercent: 0,
-          dayChange: 0,
-          dayChangePercent: 0,
-          currentValue: currentVal,
-        });
-      }
-      return;
-    }
-
-    const existing = existingHoldingIndex >= 0 ? this.holdings[existingHoldingIndex] : undefined;
-    if (!existing) return;
-    const remainingQty = existing.quantity - qty;
-    if (remainingQty <= 0) {
-      this.holdings.splice(existingHoldingIndex, 1);
-      return;
-    }
-    const currentVal = remainingQty * existing.ltp;
-    const pnl = currentVal - remainingQty * existing.averagePrice;
-    const pnlPercent = (pnl / (remainingQty * existing.averagePrice)) * 100;
-    this.holdings[existingHoldingIndex] = {
-      ...existing,
-      quantity: remainingQty,
-      currentValue: currentVal,
-      pnl,
-      pnlPercent,
-    };
-  }
-
-  private applyToPositions(
-    side: "BUY" | "SELL",
-    symbol: string,
-    qty: number,
-    orderPrice: number,
-  ): void {
-    const existingIndex = this.positions.findIndex((p) => p.symbol === symbol);
-    if (side === "BUY") {
-      const existing = existingIndex >= 0 ? this.positions[existingIndex] : undefined;
-      if (existing) {
-        const newQty = existing.quantity + qty;
-        const newAvg = (existing.quantity * existing.averagePrice + qty * orderPrice) / newQty;
-        const ltp = existing.ltp || orderPrice;
-        this.positions[existingIndex] = {
-          ...existing,
-          quantity: newQty,
-          averagePrice: newAvg,
-          pnl: newQty * ltp - newQty * newAvg,
-        };
-      } else {
-        this.positions.push({
-          symbol,
-          quantity: qty,
-          averagePrice: orderPrice,
-          ltp: orderPrice,
-          pnl: 0,
-        });
-      }
-      return;
-    }
-
-    const existing = existingIndex >= 0 ? this.positions[existingIndex] : undefined;
-    if (!existing) return;
-    const remainingQty = existing.quantity - qty;
-    if (remainingQty <= 0) {
-      this.positions.splice(existingIndex, 1);
-      return;
-    }
-    const ltp = existing.ltp || orderPrice;
-    this.positions[existingIndex] = {
-      ...existing,
-      quantity: remainingQty,
-      pnl: remainingQty * ltp - remainingQty * existing.averagePrice,
-    };
   }
 }
 

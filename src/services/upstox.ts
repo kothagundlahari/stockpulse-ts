@@ -97,7 +97,7 @@ export class UpstoxClient implements Broker {
 
   async placeOrder(params: PlaceOrderParams & { confirm: true }): Promise<{ id: string }> {
     if (!params.confirm) {
-      throw new Error("Trade not confirmed. Pass confirm:true to place a real order.");
+      throw new Error("Order not confirmed. Pass confirm:true to place a real order.");
     }
     const instrumentToken = await this.resolveInstrumentKey(params.symbol);
     const res = await axios.post(

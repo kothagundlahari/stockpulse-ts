@@ -9,7 +9,7 @@ export interface PersonalityDefinition {
   id: string;
   name: string;
   description: string;
-  filter: (s: Fundamentals) => boolean;
+  matches: (s: Fundamentals) => boolean;
   score: (stock: Fundamentals, benchmark: SectorBenchmark) => number;
 }
 
@@ -37,7 +37,7 @@ export const PERSONALITIES: PersonalityDefinition[] = [
     name: "Warren Buffett",
     description:
       "Quality compounding businesses: high and stable ROE, moderate leverage, strong margins.",
-    filter: (s) =>
+    matches: (s) =>
       (s.roe ?? 0) >= 15 && (s.debtToEquity ?? Infinity) <= 0.5 && (s.operatingMargin ?? 0) >= 15,
     score: (stock, benchmark) => {
       const { marginRatio, roeRatio } = getNormalizedRatios(stock, benchmark);
@@ -52,7 +52,7 @@ export const PERSONALITIES: PersonalityDefinition[] = [
     id: "munger",
     name: "Charlie Munger",
     description: "High-quality moats with strong returns on capital at a reasonable price.",
-    filter: (s) =>
+    matches: (s) =>
       (s.roe ?? 0) >= 20 && (s.peRatio ?? Infinity) <= 35 && (s.debtToEquity ?? Infinity) <= 0.5,
     score: (stock, benchmark) => {
       const { roeRatio } = getNormalizedRatios(stock, benchmark);
@@ -68,7 +68,7 @@ export const PERSONALITIES: PersonalityDefinition[] = [
     id: "lych",
     name: "Peter Lynch",
     description: "Growth at a reasonable price (GARP): strong growth with a sensible PEG.",
-    filter: (s) =>
+    matches: (s) =>
       (s.peRatio ?? Infinity) <= 30 &&
       (s.revenueGrowth ?? (s.netProfit ? 10 : 0)) >= 10 &&
       (s.netProfit ?? 0) > 0,
@@ -88,7 +88,7 @@ export const PERSONALITIES: PersonalityDefinition[] = [
     name: "Benjamin Graham",
     description:
       "Deep value: conservative valuation, low debt, decent earnings and dividend yield.",
-    filter: (s) =>
+    matches: (s) =>
       (s.peRatio ?? Infinity) <= 15 &&
       (s.pbRatio ?? Infinity) <= 1.5 &&
       (s.dividendYield ?? 0) >= 1,
@@ -107,7 +107,7 @@ export const PERSONALITIES: PersonalityDefinition[] = [
     id: "greenblatt",
     name: "Joel Greenblatt",
     description: "Magic Formula: high earnings yield combined with high return on capital.",
-    filter: (s) =>
+    matches: (s) =>
       (s.peRatio ?? Infinity) <= 20 && (s.roe ?? 0) >= 20 && (s.debtToEquity ?? Infinity) <= 0.5,
     score: (stock, benchmark) => {
       const { roeRatio } = getNormalizedRatios(stock, benchmark);
@@ -122,7 +122,7 @@ export const PERSONALITIES: PersonalityDefinition[] = [
     id: "klarman",
     name: "Seth Klarman",
     description: "Margin of safety: buy quality assets trading well below intrinsic worth.",
-    filter: (s) =>
+    matches: (s) =>
       (s.pbRatio ?? Infinity) <= 2.0 && (s.debtToEquity ?? Infinity) <= 0.5 && (s.roe ?? 0) >= 10,
     score: (stock, benchmark) => {
       const { roeRatio } = getNormalizedRatios(stock, benchmark);
@@ -138,7 +138,7 @@ export const PERSONALITIES: PersonalityDefinition[] = [
     id: "dividend",
     name: "Dividend Growth",
     description: "Income focus: attractive and safe dividend with reasonable valuation.",
-    filter: (s) =>
+    matches: (s) =>
       (s.dividendYield ?? 0) >= 2.5 && (s.peRatio ?? Infinity) <= 25 && (s.roe ?? 0) >= 12,
     score: (stock, benchmark) => {
       const { roeRatio } = getNormalizedRatios(stock, benchmark);
@@ -153,7 +153,7 @@ export const PERSONALITIES: PersonalityDefinition[] = [
     id: "momentum",
     name: "Growth Momentum",
     description: "Strong growth with rising profitability and expanding scale.",
-    filter: (s) =>
+    matches: (s) =>
       (s.revenueGrowth ?? 0) >= 15 && (s.operatingMargin ?? 0) >= 18 && (s.roe ?? 0) >= 20,
     score: (stock, benchmark) => {
       const { marginRatio, roeRatio } = getNormalizedRatios(stock, benchmark);

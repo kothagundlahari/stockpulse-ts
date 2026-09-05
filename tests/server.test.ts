@@ -240,7 +240,7 @@ describe("HTTP API", () => {
       port: 0,
       realBroker: false,
       deps: {
-        upstox: {
+        broker: {
           name: "upstox",
           isAuthenticated: true,
           getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
@@ -322,7 +322,7 @@ describe("HTTP API", () => {
       realBroker: false,
       deps: {
         db,
-        upstox: {
+        broker: {
           name: "upstox",
           isAuthenticated: true,
           getAuthUrl: () => "",
@@ -386,7 +386,7 @@ describe("HTTP API", () => {
     expect(res.status).toBe(400);
   });
 
-  it("POST /api/broker/auth with valid code succeeds and updates deps.upstox", async () => {
+  it("POST /api/broker/auth with valid code succeeds and updates deps.broker", async () => {
     const authenticatedClient: Broker = {
       name: "upstox",
       isAuthenticated: true,
@@ -548,7 +548,7 @@ describe("HTTP API", () => {
       port: 0,
       realBroker: false,
       deps: {
-        upstox: authenticatedClient,
+        broker: authenticatedClient,
         disconnectUpstox: () => {
           disconnected = true;
         },
@@ -601,7 +601,7 @@ describe("HTTP API", () => {
       port: 0,
       realBroker: false,
       deps: {
-        upstox: authenticatedClient,
+        broker: authenticatedClient,
         disconnectUpstox: () => {
           disconnected = true;
         },
@@ -649,7 +649,7 @@ describe("HTTP API", () => {
       port: 0,
       realBroker: false,
       deps: {
-        upstox: authenticatedClient,
+        broker: authenticatedClient,
         disconnectUpstox: () => {
           disconnected = true;
         },
@@ -697,7 +697,7 @@ describe("HTTP API", () => {
       port: 0,
       realBroker: false,
       deps: {
-        upstox: authenticatedClient,
+        broker: authenticatedClient,
         disconnectUpstox: () => {
           disconnected = true;
         },
@@ -1165,7 +1165,7 @@ describe("generic server errors", () => {
     const customServer = await createServer({
       port: 0,
       realBroker: false,
-      deps: { upstox: failingBroker },
+      deps: { broker: failingBroker },
     });
     await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
     const addr = customServer.address();

@@ -71,11 +71,11 @@ export function calculatePersonalityScore(
  */
 export function rankPersonalityCandidates(
   personalityId: string,
-  filter: (s: Fundamentals) => boolean,
+  matches: (s: Fundamentals) => boolean,
   universe: Fundamentals[],
 ): RankedStock[] {
   const sectorMedians = computeSectorMedians(universe);
-  const matched = universe.filter(filter);
+  const matched = universe.filter(matches);
 
   const ranked: RankedStock[] = matched.map((stock) => {
     const sector = stock.sector?.trim() || "Other";

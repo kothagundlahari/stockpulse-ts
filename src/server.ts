@@ -54,7 +54,7 @@ const OAUTH_STATE_COOKIE = "sp_oauth_state";
 const HOST = process.env.HOST ?? "127.0.0.1";
 
 export interface ServerDeps {
-  upstox: Broker;
+  broker: Broker;
   yahoo: YahooFinanceService;
   getFundamentals: () => Promise<Fundamentals[]>;
   db?: DatabaseService;
@@ -183,7 +183,7 @@ function handleBrokerError(e: unknown, res: http.ServerResponse, deps: ServerDep
     } else {
       disconnectUpstox();
     }
-    deps.upstox = getBroker();
+    deps.broker = getBroker();
     sendJson(res, 401, {
       error: "Upstox session expired. Please re-authorize.",
       expired: true,
@@ -317,7 +317,7 @@ export async function router(
             await connectUpstox(code);
             return getBroker();
           })();
-      deps.upstox = client;
+      deps.broker = client;
       clearStateCookie();
       res.writeHead(302, { Location: "/?broker=connected" });
       res.end();
@@ -334,15 +334,15 @@ export async function router(
   }
 
   if (pathname === "/api/broker") {
-    if (deps.upstox.isAuthenticated) {
-      sendJson(res, 200, { authenticated: true, authUrl: deps.upstox.getAuthUrl() });
+    if (deps.broker.isAuthenticated) {
+      sendJson(res, 200, { authenticated: true, authUrl: deps.broker.getAuthUrl() });
       return;
     }
     const state = randomBytes(16).toString("hex");
     sendJson(
       res,
       200,
-      { authenticated: false, authUrl: deps.upstox.getAuthUrl(state), state },
+      { authenticated: false, authUrl: deps.broker.getAuthUrl(state), state },
       {
         "Set-Cookie": `${OAUTH_STATE_COOKIE}=${state}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`,
       },
@@ -364,7 +364,7 @@ export async function router(
             await connectUpstox(code);
             return getBroker();
           })();
-      deps.upstox = client;
+      deps.broker = client;
       sendJson(res, 200, { ok: true });
     } catch (e) {
       sendJson(res, 500, { error: e instanceof Error ? e.message : "Authentication failed" });
@@ -378,14 +378,14 @@ export async function router(
     } else {
       disconnectUpstox();
     }
-    deps.upstox = getBroker();
+    deps.broker = getBroker();
     sendJson(res, 200, { ok: true });
     return;
   }
 
   if (pathname === "/api/portfolio") {
     try {
-      const snapshot = await loadPortfolio(deps.upstox, deps.yahoo, deps.db);
+      const snapshot = await loadPortfolio(deps.broker, deps.yahoo, deps.db);
       sendJson(res, 200, snapshot);
     } catch (e) {
       handleBrokerError(e, res, deps);
@@ -395,7 +395,7 @@ export async function router(
 
   if (pathname === "/api/orders") {
     try {
-      const orders = await deps.upstox.getOrders();
+      const orders = await deps.broker.getOrders();
       sendJson(res, 200, { orders });
     } catch (e) {
       handleBrokerError(e, res, deps);
@@ -413,7 +413,7 @@ export async function router(
       confirm?: unknown;
     };
     if (body.confirm !== true) {
-      sendJson(res, 400, { error: "Trade not confirmed. Set confirm:true to place a real order." });
+      sendJson(res, 400, { error: "Order not confirmed. Set confirm:true to place a real order." });
       return;
     }
     if (typeof body.symbol !== "string" || body.symbol.trim() === "") {
@@ -444,7 +444,7 @@ export async function router(
       return;
     }
     try {
-      const result = await deps.upstox.placeOrder({
+      const result = await deps.broker.placeOrder({
         symbol: body.symbol,
         qty: body.qty,
         side: body.side,
@@ -585,8 +585,8 @@ export interface ServerOptions {
 export async function createServer(opts: ServerOptions = {}): Promise<http.Server> {
   const realBroker = opts.realBroker ?? true;
   const deps: ServerDeps = {
-    upstox:
-      opts.deps?.upstox ??
+    broker:
+      opts.deps?.broker ??
       (realBroker
         ? getBroker()
         : {

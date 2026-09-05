@@ -5,36 +5,35 @@ import {
   createInMemoryBroker,
   disconnectUpstox,
   getBroker,
-  getUpstoxClient,
   resetBrokerFactory,
   setBroker,
 } from "../src/services/broker.js";
 import { UpstoxClient } from "../src/services/upstox.js";
 
 class FakeLiveBroker extends UpstoxClient {
-  private token: string | undefined;
+  private session: string | undefined;
 
-  constructor(token?: string) {
+  constructor(session?: string) {
     super({
       apiKey: "test",
       apiSecret: "test",
       redirectUri: "http://localhost/callback",
-      accessToken: token,
+      accessToken: session,
     });
-    this.token = token;
+    this.session = session;
   }
 
   override get isAuthenticated(): boolean {
-    return Boolean(this.token);
+    return Boolean(this.session);
   }
 
   override async authenticate(code: string): Promise<void> {
     if (!code) throw new Error("Invalid authorization code");
-    this.token = "mock-auth-token";
+    this.session = "mock-auth-token";
   }
 
   override getAccessToken(): string {
-    return this.token ?? "";
+    return this.session ?? "";
   }
 }
 
@@ -43,11 +42,11 @@ function memorySession(initial: string | null = "stored-token"): BrokerSessionSt
 } {
   const store = {
     value: initial,
-    getToken: () => store.value,
-    setToken: (token: string) => {
-      store.value = token;
+    read: () => store.value,
+    write: (session: string) => {
+      store.value = session;
     },
-    deleteToken: () => {
+    clear: () => {
       store.value = null;
     },
   };
@@ -58,7 +57,7 @@ describe("broker factory", () => {
   beforeEach(() => {
     resetBrokerFactory({
       sessionStore: memorySession("stored-token"),
-      createLive: (token) => new FakeLiveBroker(token),
+      createLive: (session) => new FakeLiveBroker(session),
     });
   });
 
@@ -66,32 +65,30 @@ describe("broker factory", () => {
     resetBrokerFactory();
   });
 
-  it("loads a persisted access token into the live Broker adapter", () => {
-    const client = getUpstoxClient();
-    expect(client.isAuthenticated).toBe(true);
+  it("loads a persisted session into the live Broker adapter", () => {
     expect(getBroker().isAuthenticated).toBe(true);
   });
 
-  it("connectUpstox authenticates and persists token", async () => {
+  it("connectUpstox authenticates and persists the live session", async () => {
     const session = memorySession(null);
     resetBrokerFactory({
       sessionStore: session,
-      createLive: (token) => new FakeLiveBroker(token),
+      createLive: (value) => new FakeLiveBroker(value),
     });
     await connectUpstox("test-code");
     expect(session.value).toBe("mock-auth-token");
     expect(getBroker().isAuthenticated).toBe(true);
   });
 
-  it("disconnectUpstox deletes token and resets client", () => {
+  it("disconnectUpstox clears the session and resets the live adapter", () => {
     const session = memorySession("stored-token");
     resetBrokerFactory({
       sessionStore: session,
-      createLive: (token) => new FakeLiveBroker(token),
+      createLive: (value) => new FakeLiveBroker(value),
     });
     disconnectUpstox();
     expect(session.value).toBeNull();
-    expect(getUpstoxClient().isAuthenticated).toBe(false);
+    expect(getBroker().isAuthenticated).toBe(false);
   });
 
   it("supports setting and getting generic Broker instance", () => {

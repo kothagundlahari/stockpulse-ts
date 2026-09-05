@@ -28,6 +28,29 @@ const CONCURRENCY = 4;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const SYMBOL_TTL_MS = 24 * 60 * 60 * 1000;
 
+class FreshMemo<T> {
+  private entry: { value: T; expiresAt: number } | undefined;
+
+  constructor(private readonly ttlMs: number) {}
+
+  getFresh(): T | undefined {
+    if (!this.entry || Date.now() >= this.entry.expiresAt) return undefined;
+    return this.entry.value;
+  }
+
+  getLast(): T | undefined {
+    return this.entry?.value;
+  }
+
+  set(value: T): void {
+    this.entry = { value, expiresAt: Date.now() + this.ttlMs };
+  }
+
+  clear(): void {
+    this.entry = undefined;
+  }
+}
+
 export function parseNifty500Csv(csv: string): string[] {
   const rows = parse(csv, { skip_empty_lines: true, relax_column_count: true }) as string[][];
   const symbols = new Set<string>();
@@ -47,8 +70,8 @@ export function parseNifty500Csv(csv: string): string[] {
 
 const yahoo = new YahooFinanceService();
 let defaultDb: DatabaseService | null = null;
-let symbolsCache: { at: number; symbols: string[] } | null = null;
-let fundCache: { fetchedAt: number; data: Fundamentals[] } | null = null;
+const symbolsMemo = new FreshMemo<string[]>(SYMBOL_TTL_MS);
+let lastUniverse: Fundamentals[] | null = null;
 let inflight: Promise<Fundamentals[]> | null = null;
 
 function getDb(customDb?: DatabaseService): DatabaseService {
@@ -60,14 +83,15 @@ function getDb(customDb?: DatabaseService): DatabaseService {
 }
 
 export function resetNifty500CacheForTesting(): void {
-  symbolsCache = null;
-  fundCache = null;
+  symbolsMemo.clear();
+  lastUniverse = null;
   inflight = null;
   defaultDb = null;
 }
 
 export async function getNifty500Symbols(): Promise<string[]> {
-  if (symbolsCache && Date.now() - symbolsCache.at < SYMBOL_TTL_MS) return symbolsCache.symbols;
+  const fresh = symbolsMemo.getFresh();
+  if (fresh) return fresh;
   try {
     const res = await fetch(NSE_CSV_URL, { headers: { "User-Agent": "Mozilla/5.0" } });
     if (!res.ok) {
@@ -78,10 +102,11 @@ export async function getNifty500Symbols(): Promise<string[]> {
     if (symbols.length < 50) {
       throw new Error("NSE index CSV returned an unexpectedly small symbol list; rejecting it.");
     }
-    symbolsCache = { at: Date.now(), symbols };
+    symbolsMemo.set(symbols);
     return symbols;
   } catch (err) {
-    if (symbolsCache) return symbolsCache.symbols;
+    const last = symbolsMemo.getLast();
+    if (last) return last;
     throw err;
   }
 }
@@ -117,16 +142,16 @@ export async function getNifty500Fundamentals(
         }
       });
       database.saveFundamentals(live);
-      fundCache = { fetchedAt: Date.now(), data: live };
+      lastUniverse = live;
       return live;
     } catch (err) {
       const fallback = database.getAllCachedFundamentals();
       if (fallback.length > 0) {
         const data = fallback.map((c) => c.data);
-        fundCache = { fetchedAt: Date.now(), data };
+        lastUniverse = data;
         return data;
       }
-      if (fundCache) return fundCache.data;
+      if (lastUniverse) return lastUniverse;
       throw err;
     } finally {
       inflight = null;

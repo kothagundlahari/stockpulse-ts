@@ -80,36 +80,36 @@ describe("Personality screeners", () => {
     expect(ids).toContain("momentum");
   });
 
-  it("Graham's deep-value filter favors low P/E, low P/B, dividend payers", () => {
-    const matched = FIXTURE.filter(getPersonality("graham").filter);
+  it("Graham's deep-value Personality favors low P/E, low P/B, dividend payers", () => {
+    const matched = FIXTURE.filter(getPersonality("graham").matches);
     expect(matched.some((s) => s.symbol === "ONGC")).toBe(true);
     expect(matched.some((s) => s.symbol === "RELIANCE")).toBe(false);
   });
 
-  it("Buffett's quality filter picks high-ROE, low-debt compounders", () => {
-    const matched = FIXTURE.filter(getPersonality("buffett").filter);
+  it("Buffett's quality Personality picks high-ROE, low-debt compounders", () => {
+    const matched = FIXTURE.filter(getPersonality("buffett").matches);
     expect(matched.some((s) => s.symbol === "TCS")).toBe(true);
     expect(matched.some((s) => s.symbol === "HDFCBANK")).toBe(false);
   });
 
-  it("dividend filter selects high-yield, reasonable-value names", () => {
-    const matched = FIXTURE.filter(getPersonality("dividend").filter);
+  it("Dividend Growth Personality selects high-yield, reasonable-value names", () => {
+    const matched = FIXTURE.filter(getPersonality("dividend").matches);
     expect(matched.some((s) => s.symbol === "COALINDIA")).toBe(true);
     expect(matched.some((s) => s.symbol === "ASIANPAINT")).toBe(false);
   });
 
   it("every personality returns a non-trivial subset of a realistic universe", () => {
     for (const p of PERSONALITIES) {
-      const count = FIXTURE.filter(p.filter).length;
+      const count = FIXTURE.filter(p.matches).length;
       expect(count).toBeGreaterThanOrEqual(1);
       expect(count).toBeLessThanOrEqual(FIXTURE.length);
     }
   });
 
-  it("flagging a stock with missing fields does not crash a filter", () => {
+  it("flagging a stock with missing fields does not crash a Personality match", () => {
     const incomplete: Fundamentals = { symbol: "X", marketCap: 1000 };
     for (const p of PERSONALITIES) {
-      expect(() => p.filter(incomplete)).not.toThrow();
+      expect(() => p.matches(incomplete)).not.toThrow();
     }
   });
 });

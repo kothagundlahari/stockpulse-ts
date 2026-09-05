@@ -81,7 +81,7 @@ describe("InMemoryBroker", () => {
 
     await expect(
       untypedBroker.placeOrder({ symbol: "INFY", qty: 5, side: "BUY", type: "MARKET" }),
-    ).rejects.toThrow(/Trade not confirmed/);
+    ).rejects.toThrow(/Order not confirmed/);
 
     await expect(
       untypedBroker.placeOrder({
@@ -91,7 +91,7 @@ describe("InMemoryBroker", () => {
         type: "MARKET",
         confirm: false,
       }),
-    ).rejects.toThrow(/Trade not confirmed/);
+    ).rejects.toThrow(/Order not confirmed/);
   });
 
   it("validates symbol and quantity when placing orders", async () => {

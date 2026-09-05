@@ -1,17 +1,21 @@
 import type { Broker } from "./broker-types.js";
 import { DatabaseService } from "./database.js";
 import { createInMemoryBroker, InMemoryBroker } from "./in-memory-broker.js";
-import { createUpstoxClient, UpstoxClient } from "./upstox.js";
+import { createUpstoxClient } from "./upstox.js";
 
-const LIVE_BROKER_KEY = "upstox";
+const LIVE_ADAPTER_ID = "upstox";
 
 export interface BrokerSessionStore {
-  getToken(): string | null;
-  setToken(token: string): void;
-  deleteToken(): void;
+  read(): string | null;
+  write(session: string): void;
+  clear(): void;
 }
 
-export type LiveBrokerFactory = (token?: string) => UpstoxClient;
+export interface LiveBrokerAdapter extends Broker {
+  getAccessToken(): string;
+}
+
+export type LiveBrokerFactory = (session?: string) => LiveBrokerAdapter;
 
 function sqliteSessionStore(): BrokerSessionStore {
   const withDb = <T>(fn: (db: DatabaseService) => T): T => {
@@ -23,15 +27,15 @@ function sqliteSessionStore(): BrokerSessionStore {
     }
   };
   return {
-    getToken: () => withDb((db) => db.getBrokerToken(LIVE_BROKER_KEY)),
-    setToken: (token) => {
+    read: () => withDb((db) => db.getBrokerToken(LIVE_ADAPTER_ID)),
+    write: (session) => {
       withDb((db) => {
-        db.setBrokerToken(LIVE_BROKER_KEY, token);
+        db.setBrokerToken(LIVE_ADAPTER_ID, session);
       });
     },
-    deleteToken: () => {
+    clear: () => {
       withDb((db) => {
-        db.deleteBrokerToken(LIVE_BROKER_KEY);
+        db.deleteBrokerToken(LIVE_ADAPTER_ID);
       });
     },
   };
@@ -39,7 +43,6 @@ function sqliteSessionStore(): BrokerSessionStore {
 
 let sessionStore: BrokerSessionStore = sqliteSessionStore();
 let createLive: LiveBrokerFactory = createUpstoxClient;
-let client: UpstoxClient | null = null;
 let activeBroker: Broker | null = null;
 
 export function resetBrokerFactory(options?: {
@@ -48,15 +51,13 @@ export function resetBrokerFactory(options?: {
 }): void {
   sessionStore = options?.sessionStore ?? sqliteSessionStore();
   createLive = options?.createLive ?? createUpstoxClient;
-  client = null;
   activeBroker = null;
 }
 
-function hydrateLive(): UpstoxClient {
-  const token = sessionStore.getToken();
-  client = createLive(token ?? undefined);
-  activeBroker = client;
-  return client;
+function hydrateLive(): LiveBrokerAdapter {
+  const live = createLive(sessionStore.read() ?? undefined);
+  activeBroker = live;
+  return live;
 }
 
 export function getBroker(): Broker {
@@ -66,28 +67,18 @@ export function getBroker(): Broker {
 
 export function setBroker(broker: Broker | null): void {
   activeBroker = broker;
-  if (broker instanceof UpstoxClient) {
-    client = broker;
-  }
-}
-
-export function getUpstoxClient(): UpstoxClient {
-  if (client?.isAuthenticated) return client;
-  return hydrateLive();
 }
 
 export async function connectUpstox(authCode: string): Promise<void> {
   const fresh = createLive();
   await fresh.authenticate(authCode);
-  sessionStore.setToken(fresh.getAccessToken());
-  client = fresh;
+  sessionStore.write(fresh.getAccessToken());
   activeBroker = fresh;
 }
 
 export function disconnectUpstox(): void {
-  sessionStore.deleteToken();
-  client = createLive(undefined);
-  activeBroker = client;
+  sessionStore.clear();
+  activeBroker = createLive(undefined);
 }
 
 export { createInMemoryBroker, InMemoryBroker };

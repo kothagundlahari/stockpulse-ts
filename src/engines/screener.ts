@@ -19,7 +19,7 @@ export interface PersonalityRunDetail extends PersonalityRun {
 
 /**
  * Unified Screener engine for both ad-hoc Criteria screening and curated Personality runs.
- * Consolidates criteria filtering, personality lookup, and benchmarked candidate ranking.
+ * Consolidates Criteria matching, Personality lookup, and benchmarked candidate ranking.
  */
 export class Screener {
   /**
@@ -48,13 +48,6 @@ export class Screener {
   }
 
   /**
-   * Backward-compatible alias for runCriteria.
-   */
-  filter(stocks: Fundamentals[], criteria: ScreenerCriteria): Fundamentals[] {
-    return this.runCriteria(stocks, criteria);
-  }
-
-  /**
    * Executes a curated Personality run against the Universe,
    * returning candidates ranked descending by their sector-benchmarked score.
    */
@@ -63,7 +56,7 @@ export class Screener {
     if (!personality) {
       throw new Error(`Unknown personality '${personalityId}'`);
     }
-    return rankPersonalityCandidates(personality.id, personality.filter, universe);
+    return rankPersonalityCandidates(personality.id, personality.matches, universe);
   }
 
   /**
@@ -151,8 +144,3 @@ export class Screener {
 }
 
 export const screener = new Screener();
-
-/**
- * @deprecated Use `Screener` instead. Preserved for backward compatibility.
- */
-export class ScreenerEngine extends Screener {}
