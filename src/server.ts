@@ -6,8 +6,8 @@ import https from "node:https";
 import path from "node:path";
 import tls from "node:tls";
 import { z } from "zod";
-import { PERSONALITIES } from "./data/nifty50.js";
 import { getNifty500Fundamentals } from "./data/nifty500.js";
+import { PERSONALITIES } from "./data/personalities.js";
 import { BacktestEngine, smaCrossover } from "./engines/backtest.js";
 import { recommendHolding, smaFromDaily } from "./engines/holding-recommendation.js";
 import { rankPersonalityCandidates } from "./engines/personality-ranker.js";
@@ -424,7 +424,7 @@ export async function router(
             // keep defaults on error
           }
           const weight = totalValue > 0 ? (h.currentValue / totalValue) * 100 : 0;
-          const recommendation = recommendHolding(h, fundamentals, price, weight);
+          const recommendation = recommendHolding(fundamentals, price, weight);
           return { ...h, recommendation };
         }),
       );

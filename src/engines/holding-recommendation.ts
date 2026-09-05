@@ -1,4 +1,3 @@
-import type { Holding } from "../services/broker-types.js";
 import type { Fundamentals } from "../types/index.js";
 
 export type RecommendationAction = "BUY_MORE" | "HOLD" | "SELL";
@@ -19,7 +18,6 @@ export interface PriceSignals {
 const CONCENTRATION_SELL_THRESHOLD = 30; // % of portfolio
 
 export function recommendHolding(
-  _holding: Holding,
   fundamentals: Fundamentals | undefined,
   price: PriceSignals,
   portfolioWeightPct: number,

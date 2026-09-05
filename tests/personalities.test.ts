@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PERSONALITIES } from "../src/data/nifty50.js";
+import { PERSONALITIES } from "../src/data/personalities.js";
 import type { Fundamentals } from "../src/types/index.js";
 
 function getPersonality(id: string) {

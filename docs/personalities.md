@@ -28,7 +28,7 @@ Each personality shows its matches with symbol, market cap, P/E, and ROE across 
 
 ## How a filter is defined
 
-In `src/data/nifty50.ts` each personality is a `PersonalityScreener`:
+In `src/data/personalities.ts` each personality is a `PersonalityScreener`:
 
 ```ts
 export interface PersonalityScreener {
@@ -63,11 +63,11 @@ The personality filters operate over the dynamic NIFTY 500 universe (`src/data/n
 - **Per-symbol fundamentals** are fetched from Yahoo Finance with a 30-minute cache
 - Symbols that fail to fetch are silently skipped
 
-The `src/data/nifty50.ts` file contains only the filter definitions — no hardcoded stock data.
+The `src/data/personalities.ts` file contains only the filter definitions — no hardcoded stock data.
 
 ## Adding a personality
 
-1. Add an entry to `PERSONALITIES` in `src/data/nifty50.ts`.
+1. Add an entry to `PERSONALITIES` in `src/data/personalities.ts`.
 2. Add a test asserting the filter picks and excludes known names in `tests/personalities.test.ts` (TDD).
 3. No other wiring needed — the dashboard reads `PERSONALITIES` directly.
 
