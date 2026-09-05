@@ -4,6 +4,7 @@ import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
+import tls from "node:tls";
 import { z } from "zod";
 import { PERSONALITIES } from "./data/nifty50.js";
 import { getNifty500Fundamentals } from "./data/nifty500.js";
@@ -26,6 +27,8 @@ import {
 } from "./types/index.js";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
+
+const REAL_PUBLIC_DIR = path.resolve(fs.realpathSync(PUBLIC_DIR));
 
 const VALID_RANGES = new Set([
   "1d",
@@ -68,11 +71,27 @@ export function sendJson(
   body: unknown,
   extraHeaders: Record<string, string> = {},
 ) {
-  res.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    ...extraHeaders,
-  });
+  res.setHeader("Cache-Control", "no-store");
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", ...extraHeaders });
   res.end(JSON.stringify(body));
+}
+
+const SECURITY_HEADERS = {
+  "Content-Security-Policy":
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+};
+
+/** Apply security headers to every response (HSTS only over real TLS). */
+function applySecurityHeaders(req: http.IncomingMessage, res: http.ServerResponse): void {
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    res.setHeader(name, value);
+  }
+  if (req.socket instanceof tls.TLSSocket) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000");
+  }
 }
 
 /** Parse JSON request body. */
@@ -116,6 +135,7 @@ export function wrap(
   handler: (req: http.IncomingMessage, res: http.ServerResponse) => Promise<void> | void,
 ) {
   return (req: http.IncomingMessage, res: http.ServerResponse) => {
+    applySecurityHeaders(req, res);
     Promise.resolve(handler(req, res)).catch((err) => {
       sendJson(res, 500, { error: err instanceof Error ? err.message : "Unknown error" });
     });
@@ -544,7 +564,20 @@ export async function router(
     res.end("Forbidden");
     return;
   }
-  fs.readFile(resolved, (err, data) => {
+  let realResolved: string;
+  try {
+    realResolved = fs.realpathSync(resolved);
+  } catch {
+    res.writeHead(404);
+    res.end("Not found");
+    return;
+  }
+  if (!realResolved.startsWith(REAL_PUBLIC_DIR)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
+  fs.readFile(realResolved, (err, data) => {
     if (err) {
       res.writeHead(404);
       res.end("Not found");
@@ -644,7 +677,7 @@ const isMain =
 if (isMain) {
   const s = await createServer({ port: PORT, realBroker: true });
   const isHttps = s instanceof https.Server;
-  s.listen(PORT, () => {
+  s.listen(PORT, HOST, () => {
     const proto = isHttps ? "https" : "http";
     const url = `${proto}://localhost:${PORT}`;
     console.log(`StockPulse dashboard: ${url}`);

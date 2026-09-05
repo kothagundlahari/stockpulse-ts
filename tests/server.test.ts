@@ -1,5 +1,6 @@
 import fs from "node:fs";
-import type http from "node:http";
+import http from "node:http";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createServer } from "../src/server.js";
 import type { Broker } from "../src/services/broker-types.js";
@@ -1023,6 +1024,44 @@ describe("OAuth callback state protection", () => {
       expect(connectedCode).toBe("good-code");
     } finally {
       customServer.close();
+    }
+  });
+});
+
+describe("HTTP security headers", () => {
+  it("applies security headers on API responses", async () => {
+    const res = await fetch(`${base}/api/broker`);
+    expect(res.headers.get("content-security-policy")).toContain("default-src 'self'");
+    expect(res.headers.get("content-security-policy")).toContain("script-src 'self'");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("applies security headers on static assets", async () => {
+    const res = await fetch(`${base}/`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("rejects symlink escape from public/ with 403", async () => {
+    const port = Number(new URL(base).port);
+    const linkPath = path.join(process.cwd(), "public", "__sec-hardening-symlink__");
+    fs.rmSync(linkPath, { force: true });
+    fs.symlinkSync("/etc/passwd", linkPath);
+    try {
+      const rawGet = (pathname: string): Promise<http.ServerResponse> =>
+        new Promise((resolve, reject) => {
+          const req = http.get({ host: "127.0.0.1", port, path: pathname }, (res) => resolve(res));
+          req.on("error", reject);
+        });
+      const res = await rawGet("/__sec-hardening-symlink__");
+      expect(res.statusCode).toBe(403);
+      res.destroy();
+    } finally {
+      fs.rmSync(linkPath, { force: true });
     }
   });
 });
