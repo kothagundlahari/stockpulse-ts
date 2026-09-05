@@ -20,8 +20,8 @@ dist/
 # Logs
 *.log
 
-# OMP session exports (transient artifacts)
-omp-session-*.html
+# Session HTML exports (transient artifacts from agent/pi/OMP sessions)
+*-session-*.html
 
 # Editor configs
 .idea/
