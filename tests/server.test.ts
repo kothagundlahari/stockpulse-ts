@@ -829,7 +829,7 @@ describe("HTTP API", () => {
       const res = await fetch(`${customBase}/api/personalities`);
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.error).toMatch(/Data fetch error/);
+      expect(body.error).toBe("Internal server error");
       expect(Array.isArray(body.personalities)).toBe(true);
       expect(body.personalities).toHaveLength(0);
     } finally {
@@ -1101,5 +1101,66 @@ describe("request body cap", () => {
       req.end();
     });
     expect(statusCode).toBe(413);
+  });
+});
+
+describe("generic server errors", () => {
+  it("GET /api/personalities returns a generic 500 message on failure", async () => {
+    const failingServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        getFundamentals: async () => {
+          throw new Error("Data fetch error");
+        },
+      },
+    });
+    await new Promise<void>((resolve) => failingServer.listen(0, () => resolve()));
+    const addr = failingServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/personalities`);
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.error).toBe("Internal server error");
+      expect(Array.isArray(body.personalities)).toBe(true);
+      expect(body.personalities).toHaveLength(0);
+    } finally {
+      failingServer.close();
+    }
+  });
+
+  it("GET /api/portfolio returns a generic 500 on non-auth broker failure", async () => {
+    const failingBroker: Broker = {
+      name: "upstox",
+      isAuthenticated: true,
+      getAuthUrl: () => "",
+      authenticate: async () => {},
+      getHoldings: async () => {
+        throw new Error("upstream exploded");
+      },
+      getPositions: async () => [],
+      getOrders: async () => [],
+      placeOrder: async () => ({ id: "mock-order" }),
+    };
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: { upstox: failingBroker },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/api/portfolio`);
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.error).toBe("Internal server error");
+      expect(body.expired).toBeUndefined();
+    } finally {
+      customServer.close();
+    }
   });
 });

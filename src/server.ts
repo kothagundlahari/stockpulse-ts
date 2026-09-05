@@ -158,7 +158,8 @@ export function wrap(
         sendJson(res, 413, { error: "Payload too large" });
         return;
       }
-      sendJson(res, 500, { error: err instanceof Error ? err.message : "Unknown error" });
+      console.error("[server] Unhandled error:", err);
+      sendJson(res, 500, { error: "Internal server error" });
     });
   };
 }
@@ -192,7 +193,8 @@ function handleBrokerError(e: unknown, res: http.ServerResponse, deps: ServerDep
     });
     return;
   }
-  sendJson(res, 500, { error: e instanceof Error ? e.message : "Broker request failed" });
+  console.error("[server] Broker request failed:", e);
+  sendJson(res, 500, { error: "Internal server error" });
 }
 
 export async function router(
@@ -219,8 +221,9 @@ export async function router(
       });
       sendJson(res, 200, { total: universe.length, personalities: result });
     } catch (e) {
+      console.error("[server] Failed to load personalities:", e);
       sendJson(res, 500, {
-        error: e instanceof Error ? e.message : "Failed to load personalities",
+        error: "Internal server error",
         personalities: [],
         total: 0,
       });
