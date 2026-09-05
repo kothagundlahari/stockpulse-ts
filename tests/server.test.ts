@@ -9,6 +9,26 @@ import type { YahooFinanceService } from "../src/services/yahoo-finance.js";
 let server: http.Server;
 let base = "";
 
+function getUnauthenticatedBroker(): Broker {
+  return {
+    name: "upstox",
+    isAuthenticated: false,
+    getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
+    authenticate: () => Promise.resolve(),
+    getHoldings: () => Promise.resolve([]),
+    getPositions: () => Promise.resolve([]),
+    getOrders: () => Promise.resolve([]),
+    placeOrder: async () => ({ id: "mock-order" }),
+  };
+}
+
+function getAuthenticatedBroker(): Broker {
+  return {
+    ...getUnauthenticatedBroker(),
+    isAuthenticated: true,
+  };
+}
+
 beforeAll(async () => {
   server = await createServer({ port: 0, realBroker: false });
   await new Promise<void>((resolve) => server.listen(0, () => resolve()));
@@ -427,8 +447,9 @@ describe("HTTP API", () => {
     const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
 
     try {
-      const res = await fetch(`${customBase}/callback?code=test-auth-code`, {
+      const res = await fetch(`${customBase}/callback?code=test-auth-code&state=test-state`, {
         redirect: "manual",
+        headers: { cookie: "sp_oauth_state=test-state" },
       });
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe("/?broker=connected");
@@ -443,8 +464,9 @@ describe("HTTP API", () => {
   });
 
   it("GET /callback with error redirects to /?broker=error", async () => {
-    const res = await fetch(`${base}/callback?error=access_denied`, {
+    const res = await fetch(`${base}/callback?error=access_denied&state=test-state`, {
       redirect: "manual",
+      headers: { cookie: "sp_oauth_state=test-state" },
     });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe(
@@ -453,8 +475,9 @@ describe("HTTP API", () => {
   });
 
   it("GET /callback without code redirects to /?broker=error", async () => {
-    const res = await fetch(`${base}/callback`, {
+    const res = await fetch(`${base}/callback?state=test-state`, {
       redirect: "manual",
+      headers: { cookie: "sp_oauth_state=test-state" },
     });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe(
@@ -477,8 +500,9 @@ describe("HTTP API", () => {
     const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
 
     try {
-      const res = await fetch(`${customBase}/callback?code=bad-code`, {
+      const res = await fetch(`${customBase}/callback?code=bad-code&state=test-state`, {
         redirect: "manual",
+        headers: { cookie: "sp_oauth_state=test-state" },
       });
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe(
@@ -894,6 +918,108 @@ describe("SSRF symbol restriction", () => {
       const res = await fetch(`${customBase}/api/quote?symbol=RELIANCE`);
       expect(res.status).toBe(200);
       expect(getQuote).toHaveBeenCalledWith("RELIANCE");
+    } finally {
+      customServer.close();
+    }
+  });
+});
+
+describe("OAuth callback state protection", () => {
+  it("GET /api/broker sets a state cookie and includes state in the body when unauthenticated", async () => {
+    const res = await fetch(`${base}/api/broker`);
+    expect(res.status).toBe(200);
+    const setCookie = res.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain("sp_oauth_state=");
+    expect(setCookie).toContain("HttpOnly");
+    expect(setCookie).toContain("SameSite=Lax");
+    const body = (await res.json()) as { state?: string; authUrl: string };
+    expect(typeof body.state).toBe("string");
+    expect(body.authUrl).toContain(`state=${body.state}`);
+  });
+
+  it("GET /callback without a state returns 403 without exchanging a code", async () => {
+    let connected = false;
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        connectUpstox: async () => {
+          connected = true;
+          return getUnauthenticatedBroker();
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/callback?code=attacker-code`, {
+        redirect: "manual",
+      });
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toMatch(/state/i);
+      expect(connected).toBe(false);
+    } finally {
+      customServer.close();
+    }
+  });
+
+  it("GET /callback with a mismatched state returns 403 without exchanging a code", async () => {
+    let connected = false;
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        connectUpstox: async () => {
+          connected = true;
+          return getUnauthenticatedBroker();
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/callback?code=attacker-code&state=wrong`, {
+        redirect: "manual",
+        headers: { cookie: "sp_oauth_state=expected" },
+      });
+      expect(res.status).toBe(403);
+      expect(connected).toBe(false);
+    } finally {
+      customServer.close();
+    }
+  });
+
+  it("GET /callback with matching state and cookie connects and redirects", async () => {
+    let connectedCode = "";
+    let authenticated = false;
+    const customServer = await createServer({
+      port: 0,
+      realBroker: false,
+      deps: {
+        connectUpstox: async (code: string) => {
+          connectedCode = code;
+          authenticated = true;
+          return getAuthenticatedBroker();
+        },
+      },
+    });
+    await new Promise<void>((resolve) => customServer.listen(0, () => resolve()));
+    const addr = customServer.address();
+    const customBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 8787}`;
+
+    try {
+      const res = await fetch(`${customBase}/callback?code=good-code&state=abc`, {
+        redirect: "manual",
+        headers: { cookie: "sp_oauth_state=abc" },
+      });
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/?broker=connected");
+      expect(connectedCode).toBe("good-code");
     } finally {
       customServer.close();
     }

@@ -18,10 +18,11 @@ export class UpstoxClient implements Broker {
     return Boolean(this.config.accessToken);
   }
 
-  getAuthUrl(): string {
-    return `https://api.upstox.com/v2/login/authorization/dialog?client_id=${encodeURIComponent(
+  getAuthUrl(state?: string): string {
+    const base = `https://api.upstox.com/v2/login/authorization/dialog?client_id=${encodeURIComponent(
       this.config.apiKey,
     )}&redirect_uri=${encodeURIComponent(this.config.redirectUri)}&response_type=code`;
+    return state ? `${base}&state=${encodeURIComponent(state)}` : base;
   }
 
   async authenticate(code: string): Promise<void> {

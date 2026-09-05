@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
@@ -47,6 +48,9 @@ export function assertValidSymbol(symbol: string): boolean {
 
 const PORT = Number(process.env.PORT ?? 8787);
 
+const OAUTH_STATE_COOKIE = "sp_oauth_state";
+const HOST = process.env.HOST ?? "127.0.0.1";
+
 export interface ServerDeps {
   upstox: UpstoxClient | Broker;
   yahoo: YahooFinanceService;
@@ -58,8 +62,16 @@ export interface ServerDeps {
 }
 
 /** Minimal JSON helper. */
-export function sendJson(res: http.ServerResponse, status: number, body: unknown) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+export function sendJson(
+  res: http.ServerResponse,
+  status: number,
+  body: unknown,
+  extraHeaders: Record<string, string> = {},
+) {
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    ...extraHeaders,
+  });
   res.end(JSON.stringify(body));
 }
 
@@ -79,6 +91,24 @@ export async function readBody(req: http.IncomingMessage): Promise<unknown> {
   } catch {
     return {};
   }
+}
+
+/** Read a single cookie value from a Cookie header. */
+function readCookie(cookieHeader: string | undefined, name: string): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const [key, value] = part.trim().split("=");
+    if (key === name) return value ?? "";
+  }
+  return null;
+}
+
+/** Constant-time string comparison. */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
 }
 
 /** Handle async request handlers, converting errors to a 500 JSON response. */
@@ -223,8 +253,20 @@ export async function router(
 
   // --- OAuth callback ---
   if (pathname === "/callback") {
+    const clearStateCookie = () => {
+      res.setHeader("Set-Cookie", `${OAUTH_STATE_COOKIE}=; Max-Age=0; Path=/`);
+    };
+    const cookieState = readCookie(req.headers.cookie, OAUTH_STATE_COOKIE);
+    const queryState = searchParams.get("state");
+    if (!cookieState || !queryState || !safeEqual(cookieState, queryState)) {
+      clearStateCookie();
+      sendJson(res, 403, { error: "OAuth state mismatch" });
+      return;
+    }
+
     const error = searchParams.get("error");
     if (error) {
+      clearStateCookie();
       res.writeHead(302, {
         Location: `/?broker=error&message=${encodeURIComponent(error)}`,
       });
@@ -234,6 +276,7 @@ export async function router(
 
     const code = searchParams.get("code");
     if (!code) {
+      clearStateCookie();
       res.writeHead(302, {
         Location: `/?broker=error&message=${encodeURIComponent("Missing authorization code")}`,
       });
@@ -249,11 +292,13 @@ export async function router(
             return getUpstoxClient();
           })();
       deps.upstox = client;
+      clearStateCookie();
       res.writeHead(302, { Location: "/?broker=connected" });
       res.end();
       return;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Authentication failed";
+      clearStateCookie();
       res.writeHead(302, {
         Location: `/?broker=error&message=${encodeURIComponent(msg)}`,
       });
@@ -263,10 +308,17 @@ export async function router(
   }
 
   if (pathname === "/api/broker") {
-    sendJson(res, 200, {
-      authenticated: deps.upstox.isAuthenticated,
-      authUrl: deps.upstox.getAuthUrl(),
-    });
+    if (deps.upstox.isAuthenticated) {
+      sendJson(res, 200, { authenticated: true, authUrl: deps.upstox.getAuthUrl() });
+      return;
+    }
+    const state = randomBytes(16).toString("hex");
+    sendJson(
+      res,
+      200,
+      { authenticated: false, authUrl: deps.upstox.getAuthUrl(state), state },
+      { "Set-Cookie": `${OAUTH_STATE_COOKIE}=${state}; HttpOnly; SameSite=Lax; Path=/` },
+    );
     return;
   }
 
@@ -524,7 +576,10 @@ export async function createServer(opts: ServerOptions = {}): Promise<http.Serve
         : {
             name: "upstox",
             isAuthenticated: false,
-            getAuthUrl: () => "https://api.upstox.com/v2/login/authorization/dialog",
+            getAuthUrl: (state?: string) =>
+              state
+                ? `https://api.upstox.com/v2/login/authorization/dialog?state=${encodeURIComponent(state)}`
+                : "https://api.upstox.com/v2/login/authorization/dialog",
             authenticate: async () => {},
             getHoldings: async () => [],
             getPositions: async () => [],
