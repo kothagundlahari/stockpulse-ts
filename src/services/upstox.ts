@@ -141,7 +141,7 @@ export class UpstoxClient implements Broker {
         quantity: params.qty,
         price: params.type === "LIMIT" ? (params.limitPrice ?? 0) : 0,
         validity: "DAY",
-        product: "D",
+        product: "D", // ADR-0003: delivery fill, not a Position
       },
       { headers: this.headers() },
     );
