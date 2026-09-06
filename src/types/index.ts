@@ -106,18 +106,28 @@ export const OrderSchema = z.object({
 
 export type Order = z.infer<typeof OrderSchema>;
 
+const NSE_SYMBOL = /^[A-Z0-9.-]{1,20}$/;
+
+/** Allow-listed NSE ticker characters: blocks path/URL manipulation in outbound requests. */
+export function isAllowedNseSymbol(symbol: string): boolean {
+  return NSE_SYMBOL.test(symbol);
+}
+
 export const PlaceOrderParamsSchema = z.object({
-  symbol: z.string().min(1),
-  qty: z.number().int().positive(),
+  symbol: z
+    .string()
+    .min(1)
+    .refine((value) => isAllowedNseSymbol(value.toUpperCase())),
   side: z.enum(["BUY", "SELL"]),
   type: z.enum(["LIMIT", "MARKET"]),
-  limitPrice: z.number().positive().optional(),
+  qty: z.number().int().positive(),
+  limitPrice: z.number().optional(),
 });
 
 export const OrderRequestSchema = PlaceOrderParamsSchema.extend({
   confirm: z.literal(true),
 }).superRefine((value, ctx) => {
-  if (value.type === "LIMIT" && value.limitPrice == null) {
+  if (value.type === "LIMIT" && !(value.limitPrice != null && value.limitPrice > 0)) {
     ctx.addIssue({
       code: "custom",
       path: ["limitPrice"],
@@ -127,3 +137,45 @@ export const OrderRequestSchema = PlaceOrderParamsSchema.extend({
 });
 
 export type OrderRequest = z.infer<typeof OrderRequestSchema>;
+
+export type ParseOrderRequestResult =
+  | { ok: true; value: OrderRequest }
+  | { ok: false; error: string };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function firstIssuePath(issues: { path: PropertyKey[] }[]): string | undefined {
+  const key = issues[0]?.path[0];
+  return typeof key === "string" ? key : undefined;
+}
+
+/** Unknown JSON body → confirmed Order request or today's /api/trade error string. */
+export function parseOrderRequest(body: unknown): ParseOrderRequestResult {
+  if (!isRecord(body) || body.confirm !== true) {
+    return { ok: false, error: "Order not confirmed. Set confirm:true to place a real order." };
+  }
+
+  const parsed = OrderRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    const path = firstIssuePath(parsed.error.issues);
+    if (path === "side") {
+      return { ok: false, error: "Invalid side. Must be BUY or SELL." };
+    }
+    if (path === "type") {
+      return { ok: false, error: "Invalid type. Must be LIMIT or MARKET." };
+    }
+    if (path === "qty") {
+      return { ok: false, error: "Invalid qty. Must be a positive integer." };
+    }
+    if (path === "limitPrice") {
+      return { ok: false, error: "limitPrice must be a positive number for LIMIT orders." };
+    }
+    if (path === "symbol") {
+      return { ok: false, error: "Missing or invalid symbol." };
+    }
+    return { ok: false, error: "Missing or invalid symbol." };
+  }
+  return { ok: true, value: parsed.data };
+}

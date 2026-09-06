@@ -37,6 +37,7 @@ StockPulse is deliberately simple. It avoids the multi-layered service/view-mode
 - Raw Node `http`/`https` server — no Express or other framework.
 - Transport only: method/path matching, security headers, body-size limits, symbol validation, JSON serialization.
 - Delegates domain work to engines and services (`Screener`, `loadPortfolio`, `getBroker`).
+- `POST /api/trade` parses an Order request then calls `Broker.placeOrder`; it does not re-implement the confirm/symbol/side/type/qty/limit checklist.
 
 ### 3. Engines (`src/engines/`)
 Pure business logic, no I/O:

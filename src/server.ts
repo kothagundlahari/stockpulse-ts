@@ -26,7 +26,14 @@ import { DatabaseService } from "./services/database.js";
 import { OllamaService } from "./services/ollama.js";
 import { loadPortfolio } from "./services/portfolio.js";
 import { YahooFinanceService } from "./services/yahoo-finance.js";
-import { type Criteria, CriteriaSchema, type Fundamentals, QuoteSchema } from "./types/index.js";
+import {
+  type Criteria,
+  CriteriaSchema,
+  type Fundamentals,
+  isAllowedNseSymbol,
+  parseOrderRequest,
+  QuoteSchema,
+} from "./types/index.js";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 
@@ -34,7 +41,7 @@ const REAL_PUBLIC_DIR = path.resolve(fs.realpathSync(PUBLIC_DIR));
 
 /** Allow-listed NSE ticker characters: blocks path/URL manipulation in outbound requests. */
 export function assertValidSymbol(symbol: string): boolean {
-  return /^[A-Z0-9.-]{1,20}$/.test(symbol);
+  return isAllowedNseSymbol(symbol);
 }
 
 export const MAX_BODY_BYTES = 100 * 1024;
@@ -390,54 +397,13 @@ export async function router(
   }
 
   if (pathname === "/api/trade" && req.method === "POST") {
-    const body = (await readBody(req)) as {
-      symbol?: unknown;
-      side?: unknown;
-      qty?: unknown;
-      type?: unknown;
-      limitPrice?: unknown;
-      confirm?: unknown;
-    };
-    if (body.confirm !== true) {
-      sendJson(res, 400, { error: "Order not confirmed. Set confirm:true to place a real order." });
-      return;
-    }
-    if (typeof body.symbol !== "string" || body.symbol.trim() === "") {
-      sendJson(res, 400, { error: "Missing or invalid symbol." });
-      return;
-    }
-    if (typeof body.symbol !== "string" || !assertValidSymbol(body.symbol.toUpperCase())) {
-      sendJson(res, 400, { error: "Invalid symbol" });
-      return;
-    }
-    if (body.side !== "BUY" && body.side !== "SELL") {
-      sendJson(res, 400, { error: "Invalid side. Must be BUY or SELL." });
-      return;
-    }
-    if (body.type !== "LIMIT" && body.type !== "MARKET") {
-      sendJson(res, 400, { error: "Invalid type. Must be LIMIT or MARKET." });
-      return;
-    }
-    if (typeof body.qty !== "number" || !Number.isInteger(body.qty) || body.qty <= 0) {
-      sendJson(res, 400, { error: "Invalid qty. Must be a positive integer." });
-      return;
-    }
-    if (
-      body.type === "LIMIT" &&
-      (typeof body.limitPrice !== "number" || body.limitPrice <= 0 || Number.isNaN(body.limitPrice))
-    ) {
-      sendJson(res, 400, { error: "limitPrice must be a positive number for LIMIT orders." });
+    const parsed = parseOrderRequest(await readBody(req));
+    if (!parsed.ok) {
+      sendJson(res, 400, { error: parsed.error });
       return;
     }
     try {
-      const result = await deps.broker.placeOrder({
-        symbol: body.symbol,
-        qty: body.qty,
-        side: body.side,
-        type: body.type,
-        limitPrice: typeof body.limitPrice === "number" ? body.limitPrice : undefined,
-        confirm: true,
-      });
+      const result = await deps.broker.placeOrder(parsed.value);
       sendJson(res, 200, { id: result.id });
     } catch (e) {
       handleBrokerError(e, res, deps);
