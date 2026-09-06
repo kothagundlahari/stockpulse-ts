@@ -118,6 +118,14 @@ export type PlaceOrderParams = z.infer<typeof PlaceOrderParamsSchema>;
 
 export const OrderRequestSchema = PlaceOrderParamsSchema.extend({
   confirm: z.literal(true),
+}).superRefine((value, ctx) => {
+  if (value.type === "LIMIT" && value.limitPrice == null) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["limitPrice"],
+      message: "LIMIT orders require a positive limitPrice",
+    });
+  }
 });
 
 export type OrderRequest = z.infer<typeof OrderRequestSchema>;

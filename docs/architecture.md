@@ -53,7 +53,7 @@ Everything that talks to the outside world or holds session state:
 - **`upstox.ts`** — live Broker adapter: OAuth, holdings, positions, orders, order placement
 - **`in-memory-broker.ts`** — in-process Broker adapter for tests and offline work
 - **`broker.ts`** — `getBroker` / `setBroker`, live-adapter OAuth (`connectUpstox` / `disconnectUpstox`)
-- **`broker-types.ts`** — `Broker` role; Holding, Position, Order, and Order request shapes come from shared types
+- **`broker-types.ts`** — `Broker` role only; Holding, Position, Order, and Order request come from shared types
 - **`portfolio.ts`** — `loadPortfolio`: holdings + cache-fresh Fundamentals + price history, then `assemblePortfolio`
 - **`database.ts`** — SQLite: Broker session persistence and `getFreshFundamentals` / `getAllFreshFundamentals` (24h TTL inside the store)
 - **`ollama.ts`** — local AI availability (optional)

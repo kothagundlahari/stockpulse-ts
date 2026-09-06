@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Broker, Holding, Order, PlaceOrderParams } from "../src/services/broker-types.js";
+import type { Broker } from "../src/services/broker-types.js";
+import type { Holding, Order, OrderRequest } from "../src/types/index.js";
 
 const holding: Holding = {
   symbol: "RELIANCE",
@@ -23,7 +24,12 @@ const order: Order = {
   timestamp: "2026-01-01T00:00:00.000Z",
 };
 
-const params: PlaceOrderParams = { symbol: "TCS", qty: 5, side: "BUY", type: "MARKET" };
+const params: Omit<OrderRequest, "confirm"> = {
+  symbol: "TCS",
+  qty: 5,
+  side: "BUY",
+  type: "MARKET",
+};
 
 describe("broker types", () => {
   it("Holding exposes portfolio fields", () => {
@@ -36,7 +42,7 @@ describe("broker types", () => {
     expect(new Date(order.timestamp).getTime()).not.toBeNaN();
   });
 
-  it("PlaceOrderParams omits limitPrice for a MARKET order", () => {
+  it("a MARKET Order request omits limitPrice", () => {
     expect(params).not.toHaveProperty("limitPrice");
   });
 

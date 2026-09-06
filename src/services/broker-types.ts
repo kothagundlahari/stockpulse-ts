@@ -1,6 +1,4 @@
-import type { Holding, Order, PlaceOrderParams, Position } from "../types/index.js";
-
-export type { Holding, Order, PlaceOrderParams, Position };
+import type { Holding, Order, OrderRequest, Position } from "../types/index.js";
 
 export interface Broker {
   readonly name: string;
@@ -10,5 +8,5 @@ export interface Broker {
   getHoldings(): Promise<Holding[]>;
   getPositions(): Promise<Position[]>;
   getOrders(): Promise<Order[]>;
-  placeOrder(params: PlaceOrderParams & { confirm: true }): Promise<{ id: string }>;
+  placeOrder(params: OrderRequest): Promise<{ id: string }>;
 }

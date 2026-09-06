@@ -143,4 +143,8 @@ describe("Order request", () => {
   it("rejects an invalid side", () => {
     expect(OrderRequestSchema.safeParse({ ...valid, side: "HOLD" }).success).toBe(false);
   });
+
+  it("rejects a LIMIT Order request without a positive limit price", () => {
+    expect(OrderRequestSchema.safeParse({ ...valid, type: "LIMIT" }).success).toBe(false);
+  });
 });
