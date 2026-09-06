@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-05
 - **Scope:** Local-first hardening of StockPulse (Approach A)
-- **Threat model:** Strictly local, single-user dashboard on the user's machine. Hardening is defense-in-depth against poisoned upstream data (news RSS, Yahoo Finance), malicious web pages (OAuth CSRF/account-linking, clickjacking), LAN neighbors reachable via the all-interface bind, and supply-chain/hygiene debt. Not a boundary for internet exposure — the server remains local-only.
+- **Threat model:** Strictly local, single-user dashboard on the user's machine. Hardening is defense-in-depth against poisoned upstream data (Yahoo Finance), malicious web pages (OAuth CSRF/account-linking, clickjacking), LAN neighbors reachable via the all-interface bind, and supply-chain/hygiene debt. Not a boundary for internet exposure — the server remains local-only.
 
 ## Out of Scope
 
@@ -62,7 +62,6 @@ No new certificate story. HSTS is emitted only when the existing optional local-
 
 - Add an `escapeHtml(str)` helper that escapes `&`, `<`, `>`, `"`, `'`, and backtick before interpolation into any `innerHTML` template.
 - Apply `escapeHtml` to every interpolation of untrusted data in `innerHTML` templates, specifically:
-  - News items: `n.title`, `n.source` (RSS content is attacker-controllable)
   - Every `e.message` error string rendered into a `.error`/`#error` element
   - Backtest: the user-supplied `symbol`
   - Order history: `o.symbol`, `o.side`, `o.quantity`, `o.price`, status/text fields
@@ -70,7 +69,7 @@ No new certificate story. HSTS is emitted only when the existing optional local-
   - Holding-recommendation `reasons` text
   - The broker auth URL interpolated into `data-auth-url` attributes
 - Replace inline `onclick=` handlers generated in `innerHTML` (currently lines 380, 458, 505, 527, 727) with `data-action` attributes driven by a single delegated `click` listener bound once on `document`. This is required for compatibility with `script-src 'self'` and removes the `authUrl` interpolation from an executable context.
-- `public/` is excluded from Biome and Vitest (`biome.json:9`); verification is manual against the running dashboard: app loads, personality section renders, news renders, broker authorize + session-expired paths work, trade form works, no errors in the console.
+- `public/` is excluded from Biome and Vitest (`biome.json:9`); verification is manual against the running dashboard: app loads, personality section renders, broker authorize + session-expired paths work, trade form works, no errors in the console.
 
 ## 4. Request body cap
 
@@ -99,13 +98,13 @@ No new certificate story. HSTS is emitted only when the existing optional local-
 
 **Files:** `src/server.ts`
 
-Added after spec approval from the live CodeQL feed (alerts #1–#3, `js/request-forgery`, critical): the user-supplied `?symbol=` parameter flows unvalidated into outbound request URLs in `src/services/yahoo-finance.ts:29` (`getQuote`), `src/services/yahoo-finance.ts:66` (`getHistoricalPrices`), and `src/services/news.ts:57` (`fetchStockNews`). A crafted value (`../`, URL metacharacters) could redirect requests to unintended endpoints.
+Added after spec approval from the live CodeQL feed (alerts #1–#3, `js/request-forgery`, critical): the user-supplied `?symbol=` parameter flows unvalidated into outbound request URLs in `src/services/yahoo-finance.ts:29` (`getQuote`) and `src/services/yahoo-finance.ts:66` (`getHistoricalPrices`). A crafted value (`../`, URL metacharacters) could redirect requests to unintended endpoints.
 
 - Add `assertValidSymbol(symbol: string)` in `src/server.ts`: returns `true` when the symbol matches `^[A-Z0-9.\-]{1,20}$` (uppercase NSE-style tickers; letters, digits, `.`, `-`), else `false`.
-- Apply at the boundary in `/api/quote` (`src/server.ts:410`), `/api/backtest` (`src/server.ts:426`), `/api/news` (`src/server.ts:455`), each returning **400** `{ error: "Invalid symbol" }` on failure. Symbol inputs are uppercased before validation exactly as today.
+- Apply at the boundary in `/api/quote` (`src/server.ts:410`), `/api/backtest` (`src/server.ts:426`), each returning **400** `{ error: "Invalid symbol" }` on failure. Symbol inputs are uppercased before validation exactly as today.
 - Apply the same check to the `body.symbol` in `/api/trade` (`src/server.ts:358`).
 - This restricts user input to the allow-listed character class per the CodeQL `js/request-forgery` recommendation, making path/URL manipulation impossible.
-- Tests: `tests/server.test.ts` — `/api/quote?symbol=..%2F..%2Fetc` → 400; `/api/quote?symbol=VALID` → 200; `/api/news?symbol=<script>` → 400; `/api/trade` with symbol `../../../etc` → 400.
+- Tests: `tests/server.test.ts` — `/api/quote?symbol=..%2F..%2Fetc` → 400; `/api/quote?symbol=VALID` → 200; `/api/trade` with symbol `../../../etc` → 400.
 
 ## Testing Strategy
 
@@ -118,7 +117,7 @@ Extend existing suites; run `pnpm check && pnpm test` before completion.
   - `/callback` with missing/mismatched state → 403, no exchange
   - `/callback` with matching cookie + state → proceeds; existing callback tests updated to send a valid state
   - Static traversal `..` → 403
-  - Invalid symbols → 400 on `/api/quote`, `/api/news`, `/api/trade`; valid symbol passes
+  - Invalid symbols → 400 on `/api/quote`, `/api/trade`; valid symbol passes
 - `tests/upstox.test.ts`: authorize URL contains a `state` query parameter, and omits it when none is given.
 - `tests/broker.test.ts`: unaffected behavior (token save/load) still passes.
 - `tests/database.test.ts`: DB still opens; a `0600` mode assertion on the created file (POSIX; skipped gracefully elsewhere).

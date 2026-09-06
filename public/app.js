@@ -395,34 +395,6 @@ async function loadPersonalities() {
   }
 }
 
-// News
-document.getElementById("news-fetch").addEventListener("click", async () => {
-  const symbol = document.getElementById("news-symbol").value;
-  const el = document.getElementById("news-list");
-  if (!el) return;
-  el.innerHTML = "<p>Loading…</p>";
-  try {
-    const res = await fetch(`/api/news?symbol=${encodeURIComponent(symbol)}`);
-    if (!res.ok) {
-      const errData = await res.json().catch(() => null);
-      throw new Error(errData?.error || "Failed to load news");
-    }
-    const data = await res.json();
-    if (!Array.isArray(data) || !data.length) {
-      el.innerHTML = "<p>No news found.</p>";
-      return;
-    }
-    el.innerHTML = data
-      .map(
-        (n) =>
-          `<div class="news-item"><strong>${escapeHtml(n.title)}</strong><div class="meta">${escapeHtml(n.source)} · ${escapeHtml(n.pubDate)}</div></div>`,
-      )
-      .join("");
-  } catch (e) {
-    el.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
-  }
-});
-
 // Broker notices & OAuth
 function showBrokerNotice(type, text) {
   const noticeEl = document.getElementById("broker-notice");

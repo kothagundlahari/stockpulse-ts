@@ -34,18 +34,18 @@
 ### Task 1: SSRF — restrict symbol input at the server boundary
 
 **Files:**
-- Modify: `src/server.ts` (add `assertValidSymbol`, apply in `/api/quote`, `/api/backtest`, `/api/news`, `/api/trade`)
+- Modify: `src/server.ts` (add `assertValidSymbol`, apply in `/api/quote`, `/api/backtest`, `/api/trade`)
 - Test: `tests/server.test.ts`
 
 **Interfaces:**
 - Produces: `assertValidSymbol(symbol: string): boolean` in `src/server.ts` — matches `^[A-Z0-9.\-]{1,20}$`.
-- Consumes: unchanged service signatures (`deps.yahoo.getQuote`, `deps.yahoo.getHistoricalPrices`, `fetchStockNews`, `deps.upstox.placeOrder`).
+- Consumes: unchanged service signatures (`deps.yahoo.getQuote`, `deps.yahoo.getHistoricalPrices`, `deps.upstox.placeOrder`).
 
 - [ ] **Step 1: Write the failing tests** — append to `tests/server.test.ts`. New describe block needs a stub yahoo so no real network is hit; the `vi` import already exists at line 3.
 
 ```ts
 describe("SSRF symbol restriction", () => {
-  it("rejects invalid symbols on /api/quote, /api/news, and /api/trade with 400", async () => {
+  it("rejects invalid symbols on /api/quote and /api/trade with 400", async () => {
     const getQuote = vi.fn();
     const customServer = await createServer({
       port: 0,
@@ -70,11 +70,6 @@ describe("SSRF symbol restriction", () => {
       const quoteBadBody = await quoteBad.json();
       expect(quoteBadBody.error).toMatch(/symbol/i);
       expect(getQuote).not.toHaveBeenCalled();
-
-      const newsBad = await fetch(
-        `${customBase}/api/news?symbol=${encodeURIComponent("<script>")}`,
-      );
-      expect(newsBad.status).toBe(400);
 
       const tradeBad = await fetch(`${customBase}/api/trade`, {
         method: "POST",
@@ -160,15 +155,6 @@ if (!assertValidSymbol(symbol)) {
 ```
 
 In `/api/backtest`, right after its `if (!symbol)` check (line 429-431):
-
-```ts
-if (!assertValidSymbol(symbol)) {
-  sendJson(res, 400, { error: "Invalid symbol" });
-  return;
-}
-```
-
-In `/api/news`, right after its `if (!symbol)` check (line 457-459):
 
 ```ts
 if (!assertValidSymbol(symbol)) {
@@ -979,8 +965,6 @@ const escapeHtml = (s) =>
 | 380 | `${e.message}` | `${escapeHtml(e.message)}` |
 | 399 | `${symbol}` | `${escapeHtml(symbol)}` |
 | 410 | `${e.message}` | `${escapeHtml(e.message)}` |
-| 445 | `${n.title}`, `${n.source}` | `${escapeHtml(n.title)}`, `${escapeHtml(n.source)}` |
-| 449 | `${e.message}` | `${escapeHtml(e.message)}` |
 | 508 | `${e.message}` | `${escapeHtml(e.message)}` |
 | 580 | `data-symbol="${h.symbol}"` and `${h.symbol}` | `data-symbol="${escapeHtml(h.symbol)}"` and `${escapeHtml(h.symbol)}` |
 | 590 | `${reasons}` | `${escapeHtml(reasons)}` |
@@ -988,9 +972,7 @@ const escapeHtml = (s) =>
 | 740 | `${o.symbol}`, `${o.side}`, `${o.status}` | `${escapeHtml(o.symbol)}`, `${escapeHtml(o.side)}`, `${escapeHtml(o.status)}` |
 | 744 | `${e.message}` | `${escapeHtml(e.message)}` |
 
-3. Also escape `n.pubDate` on line 445 (RSS-controlled).
-
-4. Replace the five inline `onclick=` handlers (lines 380, 458, 505, 527, 727):
+3. Replace the five inline `onclick=` handlers (lines 380, 458, 505, 527, 727):
 
 - Line 380 retry button: replace `` `<p class="error">${escapeHtml(e.message)}</p><button class="btn" style="margin-top:0.5rem;" onclick="loadPersonalities()">Retry</button>` `` with `` `<p class="error">${escapeHtml(e.message)}</p><button class="btn" style="margin-top:0.5rem;" data-action="retry-personalities">Retry</button>` ``
 - Line 458 dismiss button: replace the `onclick` string with `data-action="dismiss-notice"`.
@@ -1042,10 +1024,9 @@ Run: `pnpm build && pnpm dev:server`
 Open `http://localhost:8787` and verify:
 - App loads with no console errors; the personality list renders.
 - Personality detail renders correctly (name, description, table, sector filter, Buy buttons open the trade tab).
-- On the quotes/news/backtest forms, submit an invalid symbol and confirm the error message renders as text (not HTML).
+- On the quotes/backtest forms, submit an invalid symbol and confirm the error message renders as text (not HTML).
 - Broker status shows either "Connected" or "Not connected"; click **Authorize** → navigates to Upstox (state param present in the URL). If tied to a real account, complete re-auth; if session-expired, confirm the **Re-authorize** path renders and navigates.
 - Dismiss the broker notice with ✕ → banner hides.
-- News list renders titles/sources as text.
 
 - [ ] **Step 4: Commit**
 

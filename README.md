@@ -42,7 +42,6 @@ node dist/server.js   # run the built server (after pnpm build)
 | Screener | ✅ | Criteria: market cap, PE, PB, ROE, debt/equity, revenue growth, dividend yield |
 | Live quotes & charts | ✅ | Yahoo Finance chart endpoint, NSE symbols |
 | Holding recommendations | ✅ | BUY_MORE / HOLD / SELL on existing Holdings, graded by Confidence |
-| News | ✅ | Google News + MoneyControl RSS feeds |
 | AI insights | ✅ | Optional local Ollama inference (no cloud calls) |
 | Live Orders | ✅ | Broker session (Upstox live adapter) + confirmed Order requests |
 
@@ -54,7 +53,6 @@ The server exposes a JSON API alongside the dashboard (local default `https://lo
 - `GET /api/personalities/:slug` — one Personality run (`candidates` ranked by score)
 - `GET /api/screen?<criteria>` — Criteria Screener run (`/api/screener` is an alias)
 - `GET /api/quote?symbol=` — live Quote
-- `GET /api/news` — aggregated news feed
 - `GET /api/portfolio` — Holdings + advisory Recommendations from the Broker
 - `GET /api/orders` — recent Orders from the Broker
 - `GET /api/ai` — optional local AI availability
@@ -82,7 +80,7 @@ The server exposes a JSON API alongside the dashboard (local default `https://lo
 stockpulse-ts/
 ├── src/
 │   ├── engines/        # Pure logic: screener, recommendations, assemblePortfolio
-│   ├── services/       # I/O: Yahoo, Broker adapters, portfolio intake, Ollama, news, SQLite
+│   ├── services/       # I/O: Yahoo, Broker adapters, portfolio intake, Ollama, SQLite
 │   ├── data/           # NIFTY 500 Universe + Personality definitions
 │   ├── types/          # Zod schema + inferred TypeScript types
 │   └── server.ts       # HTTP transport + JSON API (no framework)

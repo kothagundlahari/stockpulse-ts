@@ -20,7 +20,7 @@ pnpm dev:server     # run dev server via tsx without opening browser (macOS need
 ## Architecture
 
 - `src/engines/` — Pure business logic, no I/O (`screener`, `holding-recommendation`, `assemblePortfolio`). Screener Personality runs emit Candidates. Keep testable pure logic here rather than in server routes.
-- `src/services/` — Thin I/O wrappers: Yahoo Finance, Upstox live adapter (`upstox.ts`), Broker factory (`broker.ts` / `getBroker`), in-memory Broker adapter, portfolio intake (`loadPortfolio`), SQLite (`database.ts`), news RSS, and Ollama.
+- `src/services/` — Thin I/O wrappers: Yahoo Finance, Upstox live adapter (`upstox.ts`), Broker factory (`broker.ts` / `getBroker`), in-memory Broker adapter, portfolio intake (`loadPortfolio`), SQLite (`database.ts`), and Ollama.
 - `src/data/` — Dynamic NIFTY 500 Universe (live NSE CSV + Yahoo Fundamentals) and investor Personality definitions.
 - `src/server.ts` — Raw Node `http`/`https` server (no Express) routing JSON API endpoints and serving static files from `public/`. Transport only: domain work is delegated to engines and services.
 - `src/types/index.ts` — Shared Zod schemas + inferred types. Validate at external I/O boundaries.

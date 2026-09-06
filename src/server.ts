@@ -23,7 +23,6 @@ import {
 import { connectUpstox, disconnectUpstox, getBroker } from "./services/broker.js";
 import type { Broker } from "./services/broker-types.js";
 import { DatabaseService } from "./services/database.js";
-import { fetchStockNews } from "./services/news.js";
 import { OllamaService } from "./services/ollama.js";
 import { loadPortfolio } from "./services/portfolio.js";
 import { YahooFinanceService } from "./services/yahoo-finance.js";
@@ -475,20 +474,6 @@ export async function router(
       return;
     }
     sendJson(res, 200, parsed.data);
-    return;
-  }
-
-  if (pathname === "/api/news") {
-    const symbol = searchParams.get("symbol")?.toUpperCase();
-    if (!symbol) {
-      sendJson(res, 400, { error: "Missing ?symbol=X" });
-      return;
-    }
-    if (!assertValidSymbol(symbol)) {
-      sendJson(res, 400, { error: "Invalid symbol" });
-      return;
-    }
-    sendJson(res, 200, await fetchStockNews(symbol, Number(searchParams.get("limit") ?? 10)));
     return;
   }
 

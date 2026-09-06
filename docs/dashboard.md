@@ -20,7 +20,6 @@ pnpm start:server    # prod: node dist/server.js (run `pnpm build` first)
 |---|---|
 | **Quotes** | Live Quote: last price, change %, open/high/low, volume for any symbol |
 | **Personalities** | Every Personality with its Candidate count and ranked Candidates (P/E, ROE, sector, score) |
-| **News** | Latest headlines for a symbol |
 | **Portfolio** | Holdings with live P&L, per-holding Recommendations, Order panel, and Order history |
 
 ## Portfolio tab
@@ -45,7 +44,6 @@ GET /api/personalities
 GET /api/personalities/:id
 GET /api/screen?minMarketCap=500000&maxPe=30&minRoe=15
 GET /api/screener?minMarketCap=500000&maxPe=30&minRoe=15
-GET /api/news?symbol=TCS&limit=10
 GET /api/ai
 ```
 
