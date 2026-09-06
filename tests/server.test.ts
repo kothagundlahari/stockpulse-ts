@@ -881,10 +881,15 @@ describe("HTTP API", () => {
 describe("SSRF symbol restriction", () => {
   it("rejects invalid symbols on /api/quote and /api/trade with 400", async () => {
     const getQuote = vi.fn();
+    const placeOrder = vi.fn();
     const customServer = await createServer({
       port: 0,
       realBroker: false,
       deps: {
+        broker: {
+          ...getUnauthenticatedBroker(),
+          placeOrder,
+        },
         yahoo: {
           getQuote,
           getHistoricalPrices: async () => [],
@@ -917,6 +922,10 @@ describe("SSRF symbol restriction", () => {
         }),
       });
       expect(tradeBad.status).toBe(400);
+      const tradeBadBody = await readJson(tradeBad);
+      expect(tradeBadBody.error).toBe("Missing or invalid symbol.");
+      expect(getQuote).not.toHaveBeenCalled();
+      expect(placeOrder).not.toHaveBeenCalled();
     } finally {
       customServer.close();
     }

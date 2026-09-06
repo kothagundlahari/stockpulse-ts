@@ -3,6 +3,7 @@ import {
   CriteriaSchema,
   HoldingSchema,
   OrderRequestSchema,
+  parseOrderRequest,
   QuoteSchema,
   StockSchema,
 } from "../src/types/index.js";
@@ -161,5 +162,77 @@ describe("Order request", () => {
 
   it("rejects a LIMIT Order request without a positive limit price", () => {
     expect(OrderRequestSchema.safeParse({ ...valid, type: "LIMIT" }).success).toBe(false);
+  });
+});
+
+describe("parseOrderRequest", () => {
+  const valid = {
+    symbol: "TCS",
+    qty: 5,
+    side: "BUY" as const,
+    type: "MARKET" as const,
+    confirm: true as const,
+  };
+
+  it("returns a confirmed MARKET Order request", () => {
+    const parsed = parseOrderRequest(valid);
+    expect(parsed).toEqual({ ok: true, value: valid });
+  });
+
+  it("rejects a body that is not confirm:true", () => {
+    expect(parseOrderRequest({ ...valid, confirm: false })).toEqual({
+      ok: false,
+      error: "Order not confirmed. Set confirm:true to place a real order.",
+    });
+    expect(parseOrderRequest(null)).toEqual({
+      ok: false,
+      error: "Order not confirmed. Set confirm:true to place a real order.",
+    });
+  });
+
+  it("uses one rule for empty and path-like symbols", () => {
+    expect(parseOrderRequest({ ...valid, symbol: "" })).toEqual({
+      ok: false,
+      error: "Missing or invalid symbol.",
+    });
+    expect(parseOrderRequest({ ...valid, symbol: "../../etc" })).toEqual({
+      ok: false,
+      error: "Missing or invalid symbol.",
+    });
+  });
+
+  it("rejects an invalid side with the HTTP message", () => {
+    expect(parseOrderRequest({ ...valid, side: "HOLD" })).toEqual({
+      ok: false,
+      error: "Invalid side. Must be BUY or SELL.",
+    });
+  });
+
+  it("rejects an invalid type with the HTTP message", () => {
+    expect(parseOrderRequest({ ...valid, type: "STOP" })).toEqual({
+      ok: false,
+      error: "Invalid type. Must be LIMIT or MARKET.",
+    });
+  });
+
+  it("rejects a non-positive qty with the HTTP message", () => {
+    expect(parseOrderRequest({ ...valid, qty: -2 })).toEqual({
+      ok: false,
+      error: "Invalid qty. Must be a positive integer.",
+    });
+  });
+
+  it("rejects LIMIT without a positive limitPrice with the HTTP message", () => {
+    expect(parseOrderRequest({ ...valid, type: "LIMIT" })).toEqual({
+      ok: false,
+      error: "limitPrice must be a positive number for LIMIT orders.",
+    });
+  });
+
+  it("does not require limitPrice on a MARKET Order request", () => {
+    expect(parseOrderRequest({ ...valid, limitPrice: -50 })).toEqual({
+      ok: true,
+      value: { ...valid, limitPrice: -50 },
+    });
   });
 });
