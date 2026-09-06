@@ -879,7 +879,7 @@ describe("HTTP API", () => {
 });
 
 describe("SSRF symbol restriction", () => {
-  it("rejects invalid symbols on /api/quote, /api/news, and /api/trade with 400", async () => {
+  it("rejects invalid symbols on /api/quote and /api/trade with 400", async () => {
     const getQuote = vi.fn();
     const customServer = await createServer({
       port: 0,
@@ -904,11 +904,6 @@ describe("SSRF symbol restriction", () => {
       const quoteBadBody = await readJson(quoteBad);
       expect(quoteBadBody.error).toMatch(/symbol/i);
       expect(getQuote).not.toHaveBeenCalled();
-
-      const newsBad = await fetch(
-        `${customBase}/api/news?symbol=${encodeURIComponent("<script>")}`,
-      );
-      expect(newsBad.status).toBe(400);
 
       const tradeBad = await fetch(`${customBase}/api/trade`, {
         method: "POST",

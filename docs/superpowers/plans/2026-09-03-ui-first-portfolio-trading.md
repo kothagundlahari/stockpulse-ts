@@ -1484,7 +1484,7 @@ git commit -m "chore: remove CLI interface surface"
 **Notes:**
 - Every doc must reflect: UI-only interface (no CLI), Upstox as sole broker, dynamic NIFTY 500 universe, Portfolio tab, trade execution safety, rule-based recommendations, Ollama optional.
 - Update every place that references CLI commands (`node dist/cli/index.js`, `stockpulse <cmd>`, `pnpm cli`, etc.) to point at the web dashboard.
-- `data-sources.md`: explain why multiple sources exist (Yahoo = fundamentals/history; Upstox = broker trading; NSE = symbol list; News RSS = news; Ollama = optional AI). No redundancy now.
+- `data-sources.md`: explain why multiple sources exist (Yahoo = fundamentals/history; Upstox = broker trading; NSE = symbol list; Ollama = optional AI). No redundancy now.
 - `development.md`: replace CLI verification with `pnpm dev` browser verification; note the new engine tests.
 
 - [ ] **Step 1: Write `docs/upstox-trading.md`**
@@ -1539,7 +1539,7 @@ Run the dashboard:
 1. `pnpm install`
 2. `pnpm dev`   # opens http://localhost:8787 (set OPEN_BROWSER=1 to auto-open)
 
-Use the tabs: Quotes, Personalities, Backtest, News, and Portfolio.
+Use the tabs: Quotes, Personalities, Backtest, and Portfolio.
 The Portfolio tab connects to your Upstox account for holdings, recommendations,
 and (optional, confirmed) trade execution.
 ```
@@ -1577,7 +1577,7 @@ Expected: `dist/` produced without errors.
 - [ ] **Step 4: Manual smoke test of the dashboard**
 
 Run: `pnpm dev`
-Expected: dashboard loads; Quotes/Personalities/Backtest/News still work; Portfolio tab shows broker status and handles no-auth gracefully.
+Expected: dashboard loads; Quotes/Personalities/Backtest still work; Portfolio tab shows broker status and handles no-auth gracefully.
 
 - [ ] **Step 5: Final commit (if any verification artifacts)**
 

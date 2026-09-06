@@ -270,8 +270,7 @@ Add endpoints (server currently only handles GET; add POST body parsing):
   server-side backstop to the UI confirmation).
 - `POST /api/broker/auth` — complete OAuth (accept auth code, store tokens).
 
-Existing endpoints (`/api/quote`, `/api/personalities`, `/api/backtest`,
-`/api/news`) remain.
+Existing endpoints (`/api/quote`, `/api/personalities`, `/api/backtest`) remain.
 
 `/api/personalities` re-points to the dynamic NIFTY 500 universe.
 

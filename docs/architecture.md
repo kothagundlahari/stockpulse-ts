@@ -19,7 +19,7 @@ StockPulse is deliberately simple. It avoids the multi-layered service/view-mode
 │            Services (integrations)          │
 │   yahoo-finance │ upstox │ in-memory-broker │
 │   broker factory │ portfolio intake         │
-│   database │ news │ ollama                  │
+│   database │ ollama                         │
 ├─────────────────────────────────────────────┤
 │              Types (Zod schema)             │
 │   src/types/                                │
@@ -30,7 +30,7 @@ StockPulse is deliberately simple. It avoids the multi-layered service/view-mode
 
 ### 1. Web Dashboard (`public/`)
 - Plain HTML/CSS/JS served by the Node server — no build step, no framework.
-- Tabs: Quotes, Personalities, News, Portfolio.
+- Tabs: Quotes, Personalities, Portfolio.
 - The Portfolio tab shows holdings with live P&L, per-holding Recommendations, an order panel with confirmation modal, and order history.
 
 ### 2. Server (`src/server.ts`)
@@ -57,7 +57,6 @@ Everything that talks to the outside world or holds session state:
 - **`portfolio.ts`** — `loadPortfolio`: holdings + cache-fresh Fundamentals + price history, then `assemblePortfolio`
 - **`database.ts`** — SQLite: Broker session persistence and `getFreshFundamentals` / `getAllFreshFundamentals` (24h TTL inside the store)
 - **`ollama.ts`** — local AI availability (optional)
-- **`news.ts`** — RSS fetching/parsing
 
 ### 5. Types (`src/types/`)
 Every shared data shape is a **Zod schema** with an inferred TypeScript type. Validate at external I/O boundaries.

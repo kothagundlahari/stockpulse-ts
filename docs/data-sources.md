@@ -6,8 +6,6 @@ StockPulse pulls data from multiple free sources to build a complete picture of 
 |---|---|---|---|
 | Yahoo Finance v8 API | Live quotes, historical prices, fundamentals, search | No | Free |
 | NSE Index CSV | NIFTY 500 constituent symbol list | No | Free |
-| Google News RSS | Stock-specific news | No | Free |
-| MoneyControl RSS | Market commentary | No | Free |
 | Upstox Developer API | Holdings, Positions, Orders, Order placement | Yes (OAuth) | Free* |
 | Ollama (local) | AI insights | No | Free |
 
@@ -39,12 +37,6 @@ The NIFTY 500 Universe is sourced live from the official NSE index constituents 
 
 Multiple sources are used because no single source provides everything: NSE provides the authoritative constituent list, while Yahoo Finance provides the fundamental data (P/E, ROE, debt-to-equity, etc.) needed for screening.
 
-## News RSS (`/services/news.ts`)
-
-Combines Google News RSS (queried per-symbol) and MoneyControl headlines. The parser extracts `title`, `link`, and `pubDate` from `<item>` blocks via a lightweight regex parser — chosen over a heavy XML DOM dependency.
-
-Failed feeds are skipped silently so one slow feed never blocks the rest.
-
 ## Upstox (`/services/upstox.ts`)
 
 See [Upstox Trading](upstox-trading.md). Provides holdings, positions, orders, and trade execution via the Upstox Developer API. Requires OAuth2 credentials.
@@ -57,6 +49,5 @@ See [AI Insights](ai-insights.md). Runs entirely locally. Optional — the dashb
 
 - **Yahoo Finance** can rate-limit heavy usage, and now requires a browser `User-Agent` header (the service sets it automatically). If you hit `429` or empty data, wait a few seconds and retry.
 - The live quote's **open** price is taken from the latest intraday price bar; on non-trading days it may equal the last price.
-- **RSS feeds** may occasionally return empty results. The parser returns an empty array rather than throwing.
 - **NSE CSV** may occasionally be unavailable. A failed fetch throws an error; the cached symbol list is used if available.
 - This tool is for **research only**; always cross-check data with your broker before acting on it.

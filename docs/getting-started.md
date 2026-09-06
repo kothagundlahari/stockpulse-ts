@@ -47,7 +47,7 @@ pnpm dev:server   # same server, no browser
 
 `PORT` is configurable via the `PORT` environment variable (default `8787`).
 
-Once running, the dashboard opens in Safari on macOS with tabs for Quotes, Personalities, News, and Portfolio.
+Once running, the dashboard opens in Safari on macOS with tabs for Quotes, Personalities, and Portfolio.
 
 ### Production mode
 
@@ -88,8 +88,8 @@ Live Orders require an Upstox developer account. See [Upstox Trading](upstox-tra
 **Server prints mkcert instructions and exits (macOS)**
 Safari will not load HTTP. Run the mkcert commands above, then start the server again.
 
-**Quotes or news return no data**
-The Yahoo Finance or news endpoint may be rate-limiting. Wait a moment and retry. Check your internet connection.
+**Quotes return no data**
+The Yahoo Finance endpoint may be rate-limiting. Wait a moment and retry. Check your internet connection.
 
 **Ollama insight panel not showing**
 Start Ollama with `ollama serve` and pull a model first. The panel is only visible when Ollama is running locally.
