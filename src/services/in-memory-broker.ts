@@ -74,7 +74,8 @@ export interface InMemoryBrokerOptions {
 
 /**
  * In-memory Broker adapter for deterministic in-process testing and offline usage.
- * Stores holdings, positions, and orders in memory and enforces ADR-0001 confirmation.
+ * Stores Holdings, Positions, and Orders in memory. Enforces ADR-0001 confirmation
+ * and ADR-0003 delivery fills (placeOrder updates Holdings only).
  */
 export class InMemoryBroker implements Broker {
   readonly name: string;
@@ -198,15 +199,6 @@ export class InMemoryBroker implements Broker {
               : (lot.pnl / (lot.quantity * lot.averagePrice)) * 100,
         };
       },
-    });
-    applyLotFill(this.positions, params.side, params.symbol, params.qty, orderPrice, {
-      create: (lot) => lot,
-      update: (existing, lot) => ({
-        ...existing,
-        quantity: lot.quantity,
-        averagePrice: lot.averagePrice,
-        pnl: lot.pnl,
-      }),
     });
 
     return { id: orderId };

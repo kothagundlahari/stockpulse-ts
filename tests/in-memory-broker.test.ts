@@ -195,8 +195,18 @@ describe("InMemoryBroker", () => {
     expect(holdings).toHaveLength(0);
   });
 
-  it("updates Position state when placing confirmed orders", async () => {
-    const broker = createInMemoryBroker();
+  it("does not open or mutate Positions when placing a confirmed Order", async () => {
+    const seededPosition = {
+      symbol: "INFY",
+      quantity: 5,
+      averagePrice: 1500,
+      ltp: 1520,
+      pnl: 100,
+    };
+    const broker = createInMemoryBroker({
+      positions: [seededPosition],
+    });
+
     await broker.placeOrder({
       symbol: "INFY",
       qty: 5,
@@ -204,30 +214,13 @@ describe("InMemoryBroker", () => {
       type: "MARKET",
       confirm: true,
     });
-    let positions = await broker.getPositions();
-    expect(positions).toHaveLength(1);
-    expect(positions[0]?.symbol).toBe("INFY");
-    expect(positions[0]?.quantity).toBe(5);
 
-    await broker.placeOrder({
-      symbol: "INFY",
-      qty: 2,
-      side: "SELL",
-      type: "MARKET",
-      confirm: true,
-    });
-    positions = await broker.getPositions();
-    expect(positions).toHaveLength(1);
-    expect(positions[0]?.quantity).toBe(3);
+    const holdings = await broker.getHoldings();
+    expect(holdings).toHaveLength(1);
+    expect(holdings[0]?.symbol).toBe("INFY");
+    expect(holdings[0]?.quantity).toBe(5);
 
-    await broker.placeOrder({
-      symbol: "INFY",
-      qty: 3,
-      side: "SELL",
-      type: "MARKET",
-      confirm: true,
-    });
-    positions = await broker.getPositions();
-    expect(positions).toHaveLength(0);
+    const positions = await broker.getPositions();
+    expect(positions).toEqual([seededPosition]);
   });
 });

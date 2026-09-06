@@ -75,11 +75,11 @@ interface Broker {
   getHoldings(): Promise<Holding[]>;
   getPositions(): Promise<Position[]>;
   getOrders(): Promise<Order[]>;
-  placeOrder(params: PlaceOrderParams & { confirm: true }): Promise<{ id: string }>;
+  placeOrder(params: OrderRequest): Promise<{ id: string }>;
 }
 ```
 
-`getBroker()` returns the active adapter. Tests and offline work use `InMemoryBroker`, which enforces the same `confirm: true` gate (ADR-0001).
+`getBroker()` returns the active adapter. Tests and offline work use `InMemoryBroker`, which enforces the same `confirm: true` gate (ADR-0001). Confirmed Orders are delivery fills: they update Holdings, not Positions (ADR-0003).
 
 ## Token persistence
 
