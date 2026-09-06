@@ -6,7 +6,7 @@ This guide walks you through installing and running StockPulse for the first tim
 
 - **Node.js 20+** (see `package.json` `engines`)
 - **pnpm** (package manager — install via `npm install -g pnpm` or Corepack)
-- Optional: **Ollama** for AI insights, **Upstox developer account** for live Orders
+- Optional: **Ollama** for AI insights, **Upstox** (verified trading account + developer app) for a live Broker session
 - **macOS:** [mkcert](https://github.com/FiloSottile/mkcert) so Safari can load `https://localhost:8787` (the server will not start without local certs)
 
 ## Installation
@@ -73,9 +73,9 @@ ollama pull llama3
 
 If Ollama is running, the Portfolio tab shows an AI deep-dive panel for any holding. If Ollama is not running, the panel is hidden — nothing else is affected.
 
-## Option B: Enable live Orders (Upstox)
+## Option B: Broker session (Upstox)
 
-Live Orders require an Upstox developer account. See [Upstox Trading](upstox-trading.md) for the full setup.
+A live Broker session loads Holdings on the Portfolio tab and can place confirmed Orders. If your Upstox account is still being verified, wait until it is active, then follow **First-time Broker session (local)** in [Upstox Trading](upstox-trading.md).
 
 ## Where data lives
 

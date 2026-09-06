@@ -4,11 +4,68 @@ StockPulse connects to **Upstox** as the live Broker adapter via the Upstox Deve
 
 > **Warning:** Live trading involves real money. This is a research tool. Always review orders before confirming, and trade only what you can afford to lose.
 
-## Prerequisites
+## First-time Broker session (local)
 
-1. Create an Upstox developer account at [upstox.com/developer](https://upstox.com/developer).
-2. Create a new app to obtain your **API Key** and **API Secret**.
-3. Set a **Redirect URI** (use `https://localhost:8787/callback` for local development; it must match the dashboard scheme).
+Establishing a Broker session lets the dashboard read your live Holdings, Positions, and Orders. A session also *enables* confirmed Order placement (ADR-0001); you do not have to place an Order just because you connected.
+
+Use the **same** Upstox trading login for: (1) KYC/account verification, (2) creating the developer app, (3) the OAuth approve step. That login is whose book the Portfolio tab will show.
+
+If Upstox account verification is still in progress, wait until the account is active, then start at step 1. Do not register a public redirect URL as a workaround.
+
+### 0. Local dashboard already running HTTPS
+
+On macOS you need trusted certs in `certs/` (see [Getting Started](getting-started.md)). Default URL is `https://localhost:8787`.
+
+### 1. Create the developer app
+
+1. Log in to your Upstox trading account.
+2. Open the developer apps page: [account.upstox.com/developer/apps](http://account.upstox.com/developer/apps) (also linked from [upstox.com/developer](https://upstox.com/developer)).
+3. Create a **new app**. A name like `StockPulse local` is fine.
+4. Set **Redirect URI** to exactly:
+
+   `https://localhost:8787/callback`
+
+   No trailing slash. Scheme, host, port, and path must match StockPulse. Leave postback / static IP blank unless the form requires them.
+5. Accept the terms and finish. Copy **API Key** and **API Secret**.
+
+If the portal **rejects** `localhost`, stop. Do not invent another URI. Change `UPSTOX_REDIRECT_URI` and the dashboard only after deciding a new callback on purpose.
+
+### 2. Put credentials in gitignored `.env`
+
+From the repo root:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` (never commit it). Fill only the two secrets; keep the redirect URI as in the example:
+
+```
+UPSTOX_API_KEY=<paste key>
+UPSTOX_API_SECRET=<paste secret>
+UPSTOX_REDIRECT_URI=https://localhost:8787/callback
+```
+
+Do not paste the secret into chat, issues, or commits. `OAUTH_STATE_KEY` can stay empty (a local default is used).
+
+### 3. Start the dashboard and authorize
+
+```bash
+pnpm dev:server
+```
+
+Open `https://localhost:8787`, go to the **Portfolio** tab, click **Connect to Upstox** (or **Re-authorize**). Log in with the same trading account and approve access.
+
+Success: the browser returns to `/?broker=connected` and Holdings load. The Broker session token is stored only in local gitignored SQLite (`data/stockpulse.db`). Standard access tokens expire daily (~3:30 AM IST); use Re-authorize when the dashboard asks.
+
+### 4. After you are connected
+
+- Research: Portfolio tab shows Holdings and per-holding Recommendations.
+- Execution: placing an Order still requires the confirmation modal and `confirm: true`. Skip that until you intend to move real money.
+
+## Prerequisites (summary)
+
+Developer app + `.env` + HTTPS callback as in **First-time Broker session** above.
 
 ## Environment variables
 

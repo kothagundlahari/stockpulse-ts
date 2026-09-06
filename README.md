@@ -63,7 +63,7 @@ The server exposes a JSON API alongside the dashboard (local default `https://lo
 
 ## Documentation
 
-- [Getting Started](docs/getting-started.md)
+- [Getting Started](docs/getting-started.md) — includes Broker session (Upstox) after account verification
 - [Architecture](docs/architecture.md)
 - [Domain glossary](CONTEXT.md)
 - [Development Guide](docs/development.md)
@@ -72,7 +72,7 @@ The server exposes a JSON API alongside the dashboard (local default `https://lo
 - [Personalities](docs/personalities.md)
 - [Web Dashboard](docs/dashboard.md)
 - [AI Insights](docs/ai-insights.md)
-- [Live Trading (Upstox)](docs/upstox-trading.md)
+- [Broker session / live trading (Upstox)](docs/upstox-trading.md) — first-time local connect checklist
 
 ## Project Structure
 
