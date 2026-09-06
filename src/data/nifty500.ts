@@ -1,5 +1,5 @@
 import { parse } from "csv-parse/sync";
-import type { Fundamentals } from "../types/index.js";
+import { type Fundamentals, FundamentalsSchema } from "../types/index.js";
 
 async function mapWithConcurrency<T, R>(
   items: T[],
@@ -112,7 +112,6 @@ export interface UniverseStore {
 }
 
 export interface UniverseLoadAdapters {
-  force?: boolean;
   store: UniverseStore;
   market: UniverseMarket;
   listSymbols: () => Promise<string[]>;
@@ -120,8 +119,10 @@ export interface UniverseLoadAdapters {
 
 export async function getNifty500Fundamentals(
   adapters: UniverseLoadAdapters,
+  options: { force?: boolean } = {},
 ): Promise<Fundamentals[]> {
-  const { store, market, listSymbols, force = false } = adapters;
+  const { store, market, listSymbols } = adapters;
+  const force = options.force ?? false;
 
   if (!force) {
     const fresh = store.getAllFreshFundamentals(CACHE_TTL_MS);
@@ -142,7 +143,7 @@ export async function getNifty500Fundamentals(
           if (freshItem) return freshItem;
           const cachedItem = store.getCachedFundamentals(symbol);
           if (cachedItem) return cachedItem.data;
-          return { symbol } as Fundamentals;
+          return FundamentalsSchema.parse({ symbol });
         }
       });
       store.saveFundamentals(live);

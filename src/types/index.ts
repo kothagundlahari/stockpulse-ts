@@ -114,8 +114,6 @@ export const PlaceOrderParamsSchema = z.object({
   limitPrice: z.number().positive().optional(),
 });
 
-export type PlaceOrderParams = z.infer<typeof PlaceOrderParamsSchema>;
-
 export const OrderRequestSchema = PlaceOrderParamsSchema.extend({
   confirm: z.literal(true),
 }).superRefine((value, ctx) => {

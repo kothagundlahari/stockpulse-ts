@@ -53,6 +53,23 @@ describe("UpstoxClient", () => {
     );
   });
 
+  it("rejects a Holding row with an empty symbol", async () => {
+    vi.spyOn(axios, "get").mockResolvedValue({
+      data: {
+        data: [
+          {
+            tradingsymbol: "",
+            quantity: 10,
+            average_price: 2400,
+            close_price: 2500,
+            current_value: 25000,
+          },
+        ],
+      },
+    });
+    await expect(client.getHoldings()).rejects.toThrow();
+  });
+
   it("getOrders maps Upstox order rows", async () => {
     vi.spyOn(axios, "get").mockResolvedValue({
       data: {

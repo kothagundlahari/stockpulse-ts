@@ -73,7 +73,6 @@ describe("getNifty500Fundamentals with SQLite cache", () => {
     );
 
     const result = await getNifty500Fundamentals({
-      force: false,
       store: db,
       market: mockYahoo as YahooFinanceService,
       listSymbols: async () => {
@@ -95,7 +94,6 @@ describe("getNifty500Fundamentals with SQLite cache", () => {
     };
 
     const result = await getNifty500Fundamentals({
-      force: false,
       store: db,
       market: mockYahoo as YahooFinanceService,
       listSymbols: async () => ["TCS"],
@@ -120,15 +118,35 @@ describe("getNifty500Fundamentals with SQLite cache", () => {
     };
 
     try {
-      const result = await getNifty500Fundamentals({
-        force: true,
-        store: db,
-        market: mockYahoo as YahooFinanceService,
-        listSymbols: async () => ["INFY"],
-      });
+      const result = await getNifty500Fundamentals(
+        {
+          store: db,
+          market: mockYahoo as YahooFinanceService,
+          listSymbols: async () => ["INFY"],
+        },
+        { force: true },
+      );
       expect(result).toHaveLength(1);
       expect(result[0].symbol).toBe("INFY");
       expect(result[0].peRatio).toBe(22);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("returns a symbol-only Fundamentals row when Yahoo and the store both miss", async () => {
+    const db = new DatabaseService(TEST_DB);
+    const mockYahoo: Partial<YahooFinanceService> = {
+      getFundamentals: vi.fn().mockRejectedValue(new Error("Yahoo down")),
+    };
+
+    try {
+      const result = await getNifty500Fundamentals({
+        store: db,
+        market: mockYahoo as YahooFinanceService,
+        listSymbols: async () => ["WIPRO"],
+      });
+      expect(result).toEqual([{ symbol: "WIPRO" }]);
     } finally {
       db.close();
     }
