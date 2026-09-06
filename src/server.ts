@@ -14,7 +14,12 @@ import {
   macosRequiresLocalTls,
 } from "./dev-launch.js";
 import { screener } from "./engines/screener.js";
-import { OAUTH_STATE_COOKIE, signOauthStateCookie } from "./oauth-state-cookie.js";
+import {
+  connectCsrfExpireCookie,
+  connectCsrfSetCookie,
+  readConnectCsrfCookie,
+  signConnectCsrf,
+} from "./oauth-state-cookie.js";
 import { connectUpstox, disconnectUpstox, getBroker } from "./services/broker.js";
 import type { Broker } from "./services/broker-types.js";
 import { DatabaseService } from "./services/database.js";
@@ -110,16 +115,6 @@ export async function readBody(req: http.IncomingMessage): Promise<unknown> {
   } catch {
     return {};
   }
-}
-
-/** Read a single cookie value from a Cookie header. */
-function readCookie(cookieHeader: string | undefined, name: string): string | null {
-  if (!cookieHeader) return null;
-  for (const part of cookieHeader.split(";")) {
-    const [key, value] = part.trim().split("=");
-    if (key === name) return value ?? "";
-  }
-  return null;
 }
 
 /** Constant-time string comparison. */
@@ -272,11 +267,11 @@ export async function router(
   // --- OAuth callback ---
   if (pathname === "/callback") {
     const clearStateCookie = () => {
-      res.setHeader("Set-Cookie", `${OAUTH_STATE_COOKIE}=; Max-Age=0; Path=/`);
+      res.setHeader("Set-Cookie", connectCsrfExpireCookie());
     };
-    const cookieState = readCookie(req.headers.cookie, OAUTH_STATE_COOKIE);
+    const cookieState = readConnectCsrfCookie(req.headers.cookie);
     const queryState = searchParams.get("state");
-    if (!cookieState || !queryState || !safeEqual(cookieState, signOauthStateCookie(queryState))) {
+    if (!cookieState || !queryState || !safeEqual(cookieState, signConnectCsrf(queryState))) {
       clearStateCookie();
       sendJson(res, 403, { error: "OAuth state mismatch" });
       return;
@@ -336,7 +331,7 @@ export async function router(
       200,
       { authenticated: false, authUrl: deps.broker.getAuthUrl(state), state },
       {
-        "Set-Cookie": `${OAUTH_STATE_COOKIE}=${signOauthStateCookie(state)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`,
+        "Set-Cookie": connectCsrfSetCookie(state),
       },
     );
     return;

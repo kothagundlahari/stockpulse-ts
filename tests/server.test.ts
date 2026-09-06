@@ -2,7 +2,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { signOauthStateCookie } from "../src/oauth-state-cookie.js";
+import { signConnectCsrf } from "../src/oauth-state-cookie.js";
 import { createServer } from "../src/server.js";
 import type { Broker } from "../src/services/broker-types.js";
 import { DatabaseService } from "../src/services/database.js";
@@ -22,7 +22,16 @@ let server: http.Server;
 let base = "";
 
 function oauthStateCookieHeader(state: string): string {
-  return `sp_oauth_state=${signOauthStateCookie(state)}`;
+  return `sp_oauth_state=${signConnectCsrf(state)}`;
+}
+
+function expectExpiredConnectCsrfCookie(res: Response, nonce?: string): void {
+  const setCookie = res.headers.get("set-cookie") ?? "";
+  expect(setCookie).toMatch(/^sp_oauth_state=;/);
+  expect(setCookie).toContain("Max-Age=0");
+  if (nonce !== undefined) {
+    expect(setCookie).not.toContain(nonce);
+  }
 }
 
 function getUnauthenticatedBroker(): Broker {
@@ -479,6 +488,7 @@ describe("HTTP API", () => {
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe("/?broker=connected");
       expect(connectedCode).toBe("test-auth-code");
+      expectExpiredConnectCsrfCookie(res, "test-state");
 
       const brokerRes = await fetch(`${customBase}/api/broker`);
       const brokerBody = await readJson(brokerRes);
@@ -497,6 +507,7 @@ describe("HTTP API", () => {
     expect(res.headers.get("location")).toBe(
       `/?broker=error&message=${encodeURIComponent("access_denied")}`,
     );
+    expectExpiredConnectCsrfCookie(res, "test-state");
   });
 
   it("GET /callback without code redirects to /?broker=error", async () => {
@@ -508,6 +519,7 @@ describe("HTTP API", () => {
     expect(res.headers.get("location")).toBe(
       `/?broker=error&message=${encodeURIComponent("Missing authorization code")}`,
     );
+    expectExpiredConnectCsrfCookie(res, "test-state");
   });
 
   it("GET /callback redirects to /?broker=error when connectUpstox fails", async () => {
@@ -533,6 +545,7 @@ describe("HTTP API", () => {
       expect(res.headers.get("location")).toBe(
         `/?broker=error&message=${encodeURIComponent("Token exchange failed")}`,
       );
+      expectExpiredConnectCsrfCookie(res, "test-state");
     } finally {
       failingServer.close();
     }
@@ -993,6 +1006,7 @@ describe("OAuth callback state protection", () => {
       const body = await readJson(res);
       expect(body.error).toMatch(/state/i);
       expect(connected).toBe(false);
+      expectExpiredConnectCsrfCookie(res);
     } finally {
       customServer.close();
     }
@@ -1021,6 +1035,7 @@ describe("OAuth callback state protection", () => {
       });
       expect(res.status).toBe(403);
       expect(connected).toBe(false);
+      expectExpiredConnectCsrfCookie(res, "expected");
     } finally {
       customServer.close();
     }
@@ -1050,6 +1065,7 @@ describe("OAuth callback state protection", () => {
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe("/?broker=connected");
       expect(connectedCode).toBe("good-code");
+      expectExpiredConnectCsrfCookie(res, "abc");
     } finally {
       customServer.close();
     }
