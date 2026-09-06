@@ -106,7 +106,7 @@ describe("YahooFinanceService", () => {
     const quote = await service.getQuote("RELIANCE");
     expect(quote.change).toBe(0);
     expect(quote.changePercent).toBe(0);
-    expect(quote.previousClose).toBe(0);
+    expect(quote.previousClose).toBeUndefined();
     expect(Number.isNaN(quote.change)).toBe(false);
     expect(Number.isNaN(quote.changePercent)).toBe(false);
   });
@@ -122,7 +122,7 @@ describe("YahooFinanceService", () => {
     await expect(service.getQuote("RELIANCE")).rejects.toThrow("No data found");
   });
 
-  it("skips a non-numeric timestamp without shifting later closes", async () => {
+  it("keeps a history bar when the timestamp is not a number if close is present", async () => {
     mockedAxios.get.mockResolvedValueOnce({
       data: {
         chart: {
@@ -148,7 +148,7 @@ describe("YahooFinanceService", () => {
     });
 
     const prices = await service.getHistoricalPrices("RELIANCE");
-    expect(prices.map((p) => p.close)).toEqual([10, 30]);
+    expect(prices.map((p) => p.close)).toEqual([10, 20, 30]);
   });
 
   it("keeps a history bar when open, high, and low are null but close is present", async () => {

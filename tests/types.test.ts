@@ -53,6 +53,21 @@ describe("Quote", () => {
     expect(result.success).toBe(true);
   });
 
+  it("allows a Quote without previousClose", () => {
+    const result = QuoteSchema.safeParse({
+      symbol: "RELIANCE",
+      ltp: 2500,
+      change: 0,
+      changePercent: 0,
+      open: 2480,
+      high: 2520,
+      low: 2460,
+      volume: 1000000,
+      timestamp: new Date().toISOString(),
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("rejects negative ltp", () => {
     const result = QuoteSchema.safeParse({
       symbol: "RELIANCE",

@@ -124,7 +124,7 @@ export class YahooFinanceService {
       open: lastOpen ?? price,
       high: finiteNumber(meta.regularMarketDayHigh) ?? lastHigh ?? price,
       low: finiteNumber(meta.regularMarketDayLow) ?? lastLow ?? price,
-      previousClose: previousClose ?? 0,
+      ...(previousClose != null ? { previousClose } : {}),
       volume: finiteNumber(meta.regularMarketVolume) ?? lastVolume ?? 0,
       timestamp: new Date(
         (finiteNumber(meta.regularMarketTime) ?? Date.now() / 1000) * 1000,
@@ -149,11 +149,12 @@ export class YahooFinanceService {
     }
 
     return timestamps.flatMap((ts, i) => {
-      if (typeof ts !== "number") return [];
       const close = finiteNumber(quotes.close[i]);
       if (close == null) return [];
+      const seconds = typeof ts === "number" ? ts : Number(ts);
+      const date = new Date(seconds * 1000);
       const parsed = HistoricalPriceSchema.safeParse({
-        date: new Date(ts * 1000).toISOString().split("T")[0],
+        date: Number.isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0],
         open: finiteNumber(quotes.open[i]) ?? close,
         high: finiteNumber(quotes.high[i]) ?? close,
         low: finiteNumber(quotes.low[i]) ?? close,

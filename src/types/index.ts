@@ -19,7 +19,7 @@ export const QuoteSchema = z.object({
   open: z.number().nonnegative(),
   high: z.number().nonnegative(),
   low: z.number().nonnegative(),
-  previousClose: z.number().nonnegative(),
+  previousClose: z.number().nonnegative().optional(),
   volume: z.number().nonnegative(),
   timestamp: z.string().datetime(),
 });
