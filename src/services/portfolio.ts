@@ -1,6 +1,6 @@
 import { assemblePortfolio, type PortfolioSnapshot } from "../engines/portfolio.js";
-import type { Fundamentals } from "../types/index.js";
-import type { Broker, Holding } from "./broker-types.js";
+import type { Fundamentals, Holding } from "../types/index.js";
+import type { Broker } from "./broker-types.js";
 
 export interface FundamentalsStore {
   getFreshFundamentals(symbol: string, maxAgeMs?: number): Fundamentals | null;

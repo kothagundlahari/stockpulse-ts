@@ -7,6 +7,29 @@ const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 
+interface YahooChartResult {
+  meta: {
+    chartPreviousClose?: number;
+    regularMarketPreviousClose?: number;
+    regularMarketPrice?: number;
+    regularMarketChangePercent?: number;
+    regularMarketDayHigh?: number;
+    regularMarketDayLow?: number;
+    regularMarketVolume?: number;
+    regularMarketTime?: number;
+  };
+  timestamp?: number[];
+  indicators?: {
+    quote?: Array<{
+      open: number[];
+      high: number[];
+      low: number[];
+      close: number[];
+      volume: number[];
+    }>;
+  };
+}
+
 /**
  * Fetches stock data from Yahoo Finance's v8 chart endpoint.
  *
@@ -22,27 +45,32 @@ export class YahooFinanceService {
     Accept: "application/json",
   };
 
-  /** Fetch the latest quote from chart metadata (last trading day). */
-  async getQuote(symbol: string): Promise<Quote> {
+  private async fetchChart(
+    symbol: string,
+    params: Record<string, string | boolean>,
+  ): Promise<YahooChartResult | undefined> {
     const ticker = `${symbol}.NS`;
     const response = await axios.get(`${this.chartUrl}/${ticker}`, {
-      params: { range: "1d", interval: "1d" },
+      params,
       headers: this.headers,
     });
+    return response.data.chart?.result?.[0] as YahooChartResult | undefined;
+  }
 
-    const result = response.data.chart?.result?.[0];
+  /** Fetch the latest quote from chart metadata (last trading day). */
+  async getQuote(symbol: string): Promise<Quote> {
+    const result = await this.fetchChart(symbol, { range: "1d", interval: "1d" });
     if (!result) {
       throw new Error(`No data found for ${symbol}`);
     }
 
     const meta = result.meta;
     const previousClose = meta.chartPreviousClose ?? meta.regularMarketPreviousClose;
-    const price = meta.regularMarketPrice ?? previousClose;
+    const price = (meta.regularMarketPrice ?? previousClose) as number;
     const change = previousClose != null ? price - previousClose : 0;
     const changePercent =
       meta.regularMarketChangePercent ?? (previousClose ? (change / previousClose) * 100 : 0);
 
-    // Prefer the latest OHLC bar for the day's open; fall back to meta.
     const bars = result.indicators?.quote?.[0];
     const lastIndex = bars ? bars.open.length - 1 : -1;
 
@@ -51,32 +79,26 @@ export class YahooFinanceService {
       ltp: price,
       change,
       changePercent,
-      open: lastIndex >= 0 && bars.open[lastIndex] != null ? bars.open[lastIndex] : price,
-      high: meta.regularMarketDayHigh ?? (lastIndex >= 0 ? bars.high[lastIndex] : price),
-      low: meta.regularMarketDayLow ?? (lastIndex >= 0 ? bars.low[lastIndex] : price),
-      previousClose,
-      volume: meta.regularMarketVolume ?? (lastIndex >= 0 ? bars.volume[lastIndex] : 0),
+      open: lastIndex >= 0 && bars && bars.open[lastIndex] != null ? bars.open[lastIndex] : price,
+      high: meta.regularMarketDayHigh ?? (lastIndex >= 0 && bars ? bars.high[lastIndex] : price),
+      low: meta.regularMarketDayLow ?? (lastIndex >= 0 && bars ? bars.low[lastIndex] : price),
+      previousClose: previousClose as number,
+      volume: meta.regularMarketVolume ?? (lastIndex >= 0 && bars ? bars.volume[lastIndex] : 0),
       timestamp: new Date((meta.regularMarketTime ?? Date.now() / 1000) * 1000).toISOString(),
     };
   }
 
   async getHistoricalPrices(symbol: string, range: string = "1mo"): Promise<HistoricalPrice[]> {
-    const ticker = `${symbol}.NS`;
-    const response = await axios.get(`${this.chartUrl}/${ticker}`, {
-      params: {
-        range,
-        interval: "1d",
-        includeAdjustedClose: false,
-      },
-      headers: this.headers,
+    const result = await this.fetchChart(symbol, {
+      range,
+      interval: "1d",
+      includeAdjustedClose: false,
     });
-
-    const result = response.data.chart?.result?.[0];
     if (!result) {
       return [];
     }
 
-    const timestamps = result.timestamp as number[];
+    const timestamps = result.timestamp;
     const quotes = result.indicators?.quote?.[0];
     if (!timestamps || !quotes) {
       return [];
@@ -91,7 +113,10 @@ export class YahooFinanceService {
         close: quotes.close[i],
         volume: quotes.volume[i] ?? 0,
       }))
-      .filter((p) => p.close != null);
+      .filter(
+        (p): p is HistoricalPrice =>
+          p.close != null && p.open != null && p.high != null && p.low != null,
+      );
   }
 
   /** Fetch live fundamentals from Yahoo Finance quoteSummary. */

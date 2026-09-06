@@ -1,4 +1,5 @@
-import type { Broker, Holding, Order, PlaceOrderParams, Position } from "./broker-types.js";
+import type { Holding, Order, PlaceOrderParams, Position } from "../types/index.js";
+import type { Broker } from "./broker-types.js";
 
 const DEFAULT_MARK_PRICE = 100;
 

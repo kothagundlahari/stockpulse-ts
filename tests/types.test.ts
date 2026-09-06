@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { CriteriaSchema, QuoteSchema, StockSchema } from "../src/types/index.js";
+import {
+  CriteriaSchema,
+  HoldingSchema,
+  OrderRequestSchema,
+  QuoteSchema,
+  StockSchema,
+} from "../src/types/index.js";
 
 describe("Stock", () => {
   it("validates a correct stock", () => {
@@ -82,5 +88,59 @@ describe("Criteria", () => {
       minPe: "not a number",
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("Holding", () => {
+  const valid = {
+    symbol: "RELIANCE",
+    quantity: 10,
+    averagePrice: 2400,
+    ltp: 2500,
+    pnl: 1000,
+    pnlPercent: 4.17,
+    dayChange: 25,
+    dayChangePercent: 1.0,
+    currentValue: 25000,
+  };
+
+  it("validates a correct Holding", () => {
+    expect(HoldingSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects an empty symbol", () => {
+    expect(HoldingSchema.safeParse({ ...valid, symbol: "" }).success).toBe(false);
+  });
+});
+
+describe("Order request", () => {
+  const valid = {
+    symbol: "TCS",
+    qty: 5,
+    side: "BUY" as const,
+    type: "MARKET" as const,
+    confirm: true as const,
+  };
+
+  it("validates a confirmed MARKET Order request", () => {
+    expect(OrderRequestSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("validates a confirmed LIMIT Order request", () => {
+    expect(
+      OrderRequestSchema.safeParse({ ...valid, type: "LIMIT", limitPrice: 3800 }).success,
+    ).toBe(true);
+  });
+
+  it("rejects confirm that is not true", () => {
+    expect(OrderRequestSchema.safeParse({ ...valid, confirm: false }).success).toBe(false);
+  });
+
+  it("rejects an empty symbol", () => {
+    expect(OrderRequestSchema.safeParse({ ...valid, symbol: "" }).success).toBe(false);
+  });
+
+  it("rejects an invalid side", () => {
+    expect(OrderRequestSchema.safeParse({ ...valid, side: "HOLD" }).success).toBe(false);
   });
 });

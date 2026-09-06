@@ -1,6 +1,4 @@
 import { parse } from "csv-parse/sync";
-import { DatabaseService } from "../services/database.js";
-import { YahooFinanceService } from "../services/yahoo-finance.js";
 import type { Fundamentals } from "../types/index.js";
 
 async function mapWithConcurrency<T, R>(
@@ -68,27 +66,17 @@ export function parseNifty500Csv(csv: string): string[] {
   return Array.from(symbols);
 }
 
-const yahoo = new YahooFinanceService();
-let defaultDb: DatabaseService | null = null;
 const symbolsMemo = new FreshMemo<string[]>(SYMBOL_TTL_MS);
 let lastUniverse: Fundamentals[] | null = null;
 let inflight: Promise<Fundamentals[]> | null = null;
-
-function getDb(customDb?: DatabaseService): DatabaseService {
-  if (customDb) return customDb;
-  if (!defaultDb) {
-    defaultDb = new DatabaseService();
-  }
-  return defaultDb;
-}
 
 export function resetNifty500CacheForTesting(): void {
   symbolsMemo.clear();
   lastUniverse = null;
   inflight = null;
-  defaultDb = null;
 }
 
+/** Production constituent-list adapter: live NSE CSV with in-process memo. */
 export async function getNifty500Symbols(): Promise<string[]> {
   const fresh = symbolsMemo.getFresh();
   if (fresh) return fresh;
@@ -111,15 +99,32 @@ export async function getNifty500Symbols(): Promise<string[]> {
   }
 }
 
+export interface UniverseMarket {
+  getFundamentals(symbol: string): Promise<Fundamentals>;
+}
+
+export interface UniverseStore {
+  getAllFreshFundamentals(maxAgeMs: number): Fundamentals[];
+  getFreshFundamentals(symbol: string, maxAgeMs: number): Fundamentals | null;
+  getCachedFundamentals(symbol: string): { data: Fundamentals } | null;
+  saveFundamentals(items: Fundamentals[]): void;
+  getAllCachedFundamentals(): { data: Fundamentals }[];
+}
+
+export interface UniverseLoadAdapters {
+  force?: boolean;
+  store: UniverseStore;
+  market: UniverseMarket;
+  listSymbols: () => Promise<string[]>;
+}
+
 export async function getNifty500Fundamentals(
-  force = false,
-  db?: DatabaseService,
-  yahooService?: YahooFinanceService,
+  adapters: UniverseLoadAdapters,
 ): Promise<Fundamentals[]> {
-  const database = getDb(db);
+  const { store, market, listSymbols, force = false } = adapters;
 
   if (!force) {
-    const fresh = database.getAllFreshFundamentals(CACHE_TTL_MS);
+    const fresh = store.getAllFreshFundamentals(CACHE_TTL_MS);
     if (fresh.length > 0) {
       return fresh;
     }
@@ -128,24 +133,23 @@ export async function getNifty500Fundamentals(
   if (inflight) return inflight;
   inflight = (async () => {
     try {
-      const symbols = await getNifty500Symbols();
-      const yf = yahooService ?? yahoo;
+      const symbols = await listSymbols();
       const live = await mapWithConcurrency(symbols, CONCURRENCY, async (symbol) => {
         try {
-          return await yf.getFundamentals(symbol);
+          return await market.getFundamentals(symbol);
         } catch {
-          const freshItem = database.getFreshFundamentals(symbol, SYMBOL_TTL_MS);
+          const freshItem = store.getFreshFundamentals(symbol, SYMBOL_TTL_MS);
           if (freshItem) return freshItem;
-          const cachedItem = database.getCachedFundamentals(symbol);
+          const cachedItem = store.getCachedFundamentals(symbol);
           if (cachedItem) return cachedItem.data;
           return { symbol } as Fundamentals;
         }
       });
-      database.saveFundamentals(live);
+      store.saveFundamentals(live);
       lastUniverse = live;
       return live;
     } catch (err) {
-      const fallback = database.getAllCachedFundamentals();
+      const fallback = store.getAllCachedFundamentals();
       if (fallback.length > 0) {
         const data = fallback.map((c) => c.data);
         lastUniverse = data;

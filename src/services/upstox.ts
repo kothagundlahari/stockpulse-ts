@@ -1,5 +1,6 @@
 import axios from "axios";
-import type { Broker, Holding, Order, PlaceOrderParams, Position } from "./broker-types.js";
+import type { Holding, Order, PlaceOrderParams, Position } from "../types/index.js";
+import type { Broker } from "./broker-types.js";
 
 export interface UpstoxConfig {
   apiKey: string;

@@ -53,17 +53,17 @@ Everything that talks to the outside world or holds session state:
 - **`upstox.ts`** — live Broker adapter: OAuth, holdings, positions, orders, order placement
 - **`in-memory-broker.ts`** — in-process Broker adapter for tests and offline work
 - **`broker.ts`** — `getBroker` / `setBroker`, live-adapter OAuth (`connectUpstox` / `disconnectUpstox`)
-- **`broker-types.ts`** — `Broker`, `Holding`, `Position`, `Order`, `PlaceOrderParams`
+- **`broker-types.ts`** — `Broker` role; Holding, Position, Order, and Order request shapes come from shared types
 - **`portfolio.ts`** — `loadPortfolio`: holdings + cache-fresh Fundamentals + price history, then `assemblePortfolio`
 - **`database.ts`** — SQLite: Broker session persistence and `getFreshFundamentals` / `getAllFreshFundamentals` (24h TTL inside the store)
 - **`ollama.ts`** — local AI availability (optional)
 
 ### 5. Types (`src/types/`)
-Every shared data shape is a **Zod schema** with an inferred TypeScript type. Validate at external I/O boundaries.
+Every shared data shape is a **Zod schema** with an inferred TypeScript type: Stock, Quote, Fundamentals, Criteria, Holding, Position, Order, and Order request. Validate at external I/O boundaries. Broker adapters import these types; they do not own them.
 
 ## Dynamic NIFTY 500 Universe
 
-Screener and Personality runs operate over a **dynamic Universe** (`src/data/nifty500.ts`). Symbols come from the NSE index CSV (`ind_nifty500list.csv`). Per-symbol Fundamentals come from Yahoo Finance. Freshness is evaluated inside `DatabaseService` (default 24 hours). There is no hardcoded Universe roster.
+Screener and Personality runs operate over a **dynamic Universe**. Symbols come from a constituent-list adapter (production: NSE index CSV). Per-symbol Fundamentals come from a market adapter (production: Yahoo Finance) and a Fundamentals store (production: SQLite, default 24 hours). Adapters are wired at HTTP server startup. There is no hardcoded Universe roster.
 
 ## Broker seam
 
