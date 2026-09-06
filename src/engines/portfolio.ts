@@ -1,5 +1,4 @@
-import type { Holding } from "../services/broker-types.js";
-import type { Fundamentals } from "../types/index.js";
+import type { Fundamentals, Holding } from "../types/index.js";
 import { type Recommendation, recommendHolding, smaFromDaily } from "./holding-recommendation.js";
 
 export interface HoldingObservation {

@@ -72,11 +72,37 @@ describe("getNifty500Fundamentals with SQLite cache", () => {
       Date.now(),
     );
 
-    const result = await getNifty500Fundamentals(false, db, mockYahoo as YahooFinanceService);
+    const result = await getNifty500Fundamentals({
+      store: db,
+      market: mockYahoo as YahooFinanceService,
+      listSymbols: async () => {
+        throw new Error("listSymbols must not run on a cache hit");
+      },
+    });
     expect(result).toHaveLength(2);
     expect(result.map((r) => r.symbol).sort()).toEqual(["RELIANCE", "TCS"]);
     // Ensure Yahoo was NOT called
     expect(mockYahoo.getFundamentals).not.toHaveBeenCalled();
+
+    db.close();
+  });
+
+  it("fetches and stores Fundamentals on a cache miss", async () => {
+    const db = new DatabaseService(TEST_DB);
+    const mockYahoo: Partial<YahooFinanceService> = {
+      getFundamentals: vi.fn().mockResolvedValue({ symbol: "TCS", peRatio: 28 }),
+    };
+
+    const result = await getNifty500Fundamentals({
+      store: db,
+      market: mockYahoo as YahooFinanceService,
+      listSymbols: async () => ["TCS"],
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].symbol).toBe("TCS");
+    expect(result[0].peRatio).toBe(28);
+    expect(mockYahoo.getFundamentals).toHaveBeenCalledWith("TCS");
+    expect(db.getCachedFundamentals("TCS")?.data.peRatio).toBe(28);
 
     db.close();
   });
@@ -91,20 +117,37 @@ describe("getNifty500Fundamentals with SQLite cache", () => {
       getFundamentals: vi.fn().mockRejectedValue(new Error("Yahoo rate limit 429")),
     };
 
-    // Spy on global fetch for NSE CSV or mock getNifty500Symbols
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => "Symbol\nINFY\n",
-    } as unknown as Response);
-
     try {
-      const result = await getNifty500Fundamentals(true, db, mockYahoo as YahooFinanceService);
+      const result = await getNifty500Fundamentals(
+        {
+          store: db,
+          market: mockYahoo as YahooFinanceService,
+          listSymbols: async () => ["INFY"],
+        },
+        { force: true },
+      );
       expect(result).toHaveLength(1);
       expect(result[0].symbol).toBe("INFY");
       expect(result[0].peRatio).toBe(22);
     } finally {
-      globalThis.fetch = originalFetch;
+      db.close();
+    }
+  });
+
+  it("returns a symbol-only Fundamentals row when Yahoo and the store both miss", async () => {
+    const db = new DatabaseService(TEST_DB);
+    const mockYahoo: Partial<YahooFinanceService> = {
+      getFundamentals: vi.fn().mockRejectedValue(new Error("Yahoo down")),
+    };
+
+    try {
+      const result = await getNifty500Fundamentals({
+        store: db,
+        market: mockYahoo as YahooFinanceService,
+        listSymbols: async () => ["WIPRO"],
+      });
+      expect(result).toEqual([{ symbol: "WIPRO" }]);
+    } finally {
       db.close();
     }
   });

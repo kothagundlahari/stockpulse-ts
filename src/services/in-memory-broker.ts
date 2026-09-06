@@ -1,4 +1,5 @@
-import type { Broker, Holding, Order, PlaceOrderParams, Position } from "./broker-types.js";
+import type { Holding, Order, OrderRequest, Position } from "../types/index.js";
+import type { Broker } from "./broker-types.js";
 
 const DEFAULT_MARK_PRICE = 100;
 
@@ -140,7 +141,7 @@ export class InMemoryBroker implements Broker {
     this.orders = structuredClone(orders);
   }
 
-  async placeOrder(params: PlaceOrderParams & { confirm: true }): Promise<{ id: string }> {
+  async placeOrder(params: OrderRequest): Promise<{ id: string }> {
     this.assertAuthenticated();
     if (!params.confirm) {
       throw new Error("Order not confirmed. Pass confirm:true to place a real order.");

@@ -1,11 +1,67 @@
 import axios from "axios";
 import YahooFinance from "yahoo-finance2";
-import type { Fundamentals, HistoricalPrice, Quote } from "../types/index.js";
+import {
+  type Fundamentals,
+  type HistoricalPrice,
+  HistoricalPriceSchema,
+  type Quote,
+  QuoteSchema,
+} from "../types/index.js";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+interface ChartBars {
+  open: unknown[];
+  high: unknown[];
+  low: unknown[];
+  close: unknown[];
+  volume: unknown[];
+}
+
+interface ParsedChart {
+  meta: Record<string, unknown>;
+  timestamp?: unknown[];
+  bars?: ChartBars;
+}
+
+function parseChartPayload(data: unknown): ParsedChart | undefined {
+  if (!isRecord(data)) return undefined;
+  const chart = data.chart;
+  if (!isRecord(chart)) return undefined;
+  const first = Array.isArray(chart.result) ? chart.result[0] : undefined;
+  if (!isRecord(first)) return undefined;
+  const meta = first.meta;
+  if (!isRecord(meta)) return undefined;
+
+  const timestamp = Array.isArray(first.timestamp) ? first.timestamp : undefined;
+
+  const indicators = isRecord(first.indicators) ? first.indicators : undefined;
+  const quote0 = Array.isArray(indicators?.quote) ? indicators.quote[0] : undefined;
+  let bars: ChartBars | undefined;
+  if (isRecord(quote0)) {
+    const open = Array.isArray(quote0.open) ? quote0.open : undefined;
+    const high = Array.isArray(quote0.high) ? quote0.high : undefined;
+    const low = Array.isArray(quote0.low) ? quote0.low : undefined;
+    const close = Array.isArray(quote0.close) ? quote0.close : undefined;
+    const volume = Array.isArray(quote0.volume) ? quote0.volume : [];
+    if (open && high && low && close) {
+      bars = { open, high, low, close, volume };
+    }
+  }
+
+  return { meta, timestamp, bars };
+}
 
 /**
  * Fetches stock data from Yahoo Finance's v8 chart endpoint.
@@ -22,76 +78,91 @@ export class YahooFinanceService {
     Accept: "application/json",
   };
 
-  /** Fetch the latest quote from chart metadata (last trading day). */
-  async getQuote(symbol: string): Promise<Quote> {
+  private async fetchChart(
+    symbol: string,
+    params: Record<string, string | boolean>,
+  ): Promise<ParsedChart | undefined> {
     const ticker = `${symbol}.NS`;
     const response = await axios.get(`${this.chartUrl}/${ticker}`, {
-      params: { range: "1d", interval: "1d" },
+      params,
       headers: this.headers,
     });
+    return parseChartPayload(response.data);
+  }
 
-    const result = response.data.chart?.result?.[0];
+  /** Fetch the latest quote from chart metadata (last trading day). */
+  async getQuote(symbol: string): Promise<Quote> {
+    const result = await this.fetchChart(symbol, { range: "1d", interval: "1d" });
     if (!result) {
       throw new Error(`No data found for ${symbol}`);
     }
 
     const meta = result.meta;
-    const previousClose = meta.chartPreviousClose ?? meta.regularMarketPreviousClose;
-    const price = meta.regularMarketPrice ?? previousClose;
+    const previousClose =
+      finiteNumber(meta.chartPreviousClose) ?? finiteNumber(meta.regularMarketPreviousClose);
+    const price = finiteNumber(meta.regularMarketPrice) ?? previousClose;
+    if (price == null) {
+      throw new Error(`No data found for ${symbol}`);
+    }
     const change = previousClose != null ? price - previousClose : 0;
     const changePercent =
-      meta.regularMarketChangePercent ?? (previousClose ? (change / previousClose) * 100 : 0);
+      finiteNumber(meta.regularMarketChangePercent) ??
+      (previousClose ? (change / previousClose) * 100 : 0);
 
-    // Prefer the latest OHLC bar for the day's open; fall back to meta.
-    const bars = result.indicators?.quote?.[0];
+    const bars = result.bars;
     const lastIndex = bars ? bars.open.length - 1 : -1;
+    const lastOpen = lastIndex >= 0 && bars ? finiteNumber(bars.open[lastIndex]) : undefined;
+    const lastHigh = lastIndex >= 0 && bars ? finiteNumber(bars.high[lastIndex]) : undefined;
+    const lastLow = lastIndex >= 0 && bars ? finiteNumber(bars.low[lastIndex]) : undefined;
+    const lastVolume = lastIndex >= 0 && bars ? finiteNumber(bars.volume[lastIndex]) : undefined;
 
-    return {
+    return QuoteSchema.parse({
       symbol,
       ltp: price,
       change,
       changePercent,
-      open: lastIndex >= 0 && bars.open[lastIndex] != null ? bars.open[lastIndex] : price,
-      high: meta.regularMarketDayHigh ?? (lastIndex >= 0 ? bars.high[lastIndex] : price),
-      low: meta.regularMarketDayLow ?? (lastIndex >= 0 ? bars.low[lastIndex] : price),
-      previousClose,
-      volume: meta.regularMarketVolume ?? (lastIndex >= 0 ? bars.volume[lastIndex] : 0),
-      timestamp: new Date((meta.regularMarketTime ?? Date.now() / 1000) * 1000).toISOString(),
-    };
+      open: lastOpen ?? price,
+      high: finiteNumber(meta.regularMarketDayHigh) ?? lastHigh ?? price,
+      low: finiteNumber(meta.regularMarketDayLow) ?? lastLow ?? price,
+      ...(previousClose != null ? { previousClose } : {}),
+      volume: finiteNumber(meta.regularMarketVolume) ?? lastVolume ?? 0,
+      timestamp: new Date(
+        (finiteNumber(meta.regularMarketTime) ?? Date.now() / 1000) * 1000,
+      ).toISOString(),
+    });
   }
 
   async getHistoricalPrices(symbol: string, range: string = "1mo"): Promise<HistoricalPrice[]> {
-    const ticker = `${symbol}.NS`;
-    const response = await axios.get(`${this.chartUrl}/${ticker}`, {
-      params: {
-        range,
-        interval: "1d",
-        includeAdjustedClose: false,
-      },
-      headers: this.headers,
+    const result = await this.fetchChart(symbol, {
+      range,
+      interval: "1d",
+      includeAdjustedClose: false,
     });
-
-    const result = response.data.chart?.result?.[0];
     if (!result) {
       return [];
     }
 
-    const timestamps = result.timestamp as number[];
-    const quotes = result.indicators?.quote?.[0];
+    const timestamps = result.timestamp;
+    const quotes = result.bars;
     if (!timestamps || !quotes) {
       return [];
     }
 
-    return timestamps
-      .map((ts, i) => ({
-        date: new Date(ts * 1000).toISOString().split("T")[0],
-        open: quotes.open[i] ?? quotes.close[i],
-        high: quotes.high[i] ?? quotes.close[i],
-        low: quotes.low[i] ?? quotes.close[i],
-        close: quotes.close[i],
-        volume: quotes.volume[i] ?? 0,
-      }))
-      .filter((p) => p.close != null);
+    return timestamps.flatMap((ts, i) => {
+      const close = finiteNumber(quotes.close[i]);
+      if (close == null) return [];
+      const seconds = typeof ts === "number" ? ts : Number(ts);
+      const date = new Date(seconds * 1000);
+      const parsed = HistoricalPriceSchema.safeParse({
+        date: Number.isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0],
+        open: finiteNumber(quotes.open[i]) ?? close,
+        high: finiteNumber(quotes.high[i]) ?? close,
+        low: finiteNumber(quotes.low[i]) ?? close,
+        close,
+        volume: finiteNumber(quotes.volume[i]) ?? 0,
+      });
+      return parsed.success ? [parsed.data] : [];
+    });
   }
 
   /** Fetch live fundamentals from Yahoo Finance quoteSummary. */

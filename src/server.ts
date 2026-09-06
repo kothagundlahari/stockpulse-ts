@@ -5,7 +5,7 @@ import http from "node:http";
 import https from "node:https";
 import path from "node:path";
 import tls from "node:tls";
-import { getNifty500Fundamentals } from "./data/nifty500.js";
+import { getNifty500Fundamentals, getNifty500Symbols } from "./data/nifty500.js";
 import {
   browserOpenCommand,
   localTlsCertPaths,
@@ -524,6 +524,8 @@ export interface ServerOptions {
 
 export async function createServer(opts: ServerOptions = {}): Promise<http.Server> {
   const realBroker = opts.realBroker ?? true;
+  const yahoo = opts.deps?.yahoo ?? new YahooFinanceService();
+  const db = opts.deps?.db ?? new DatabaseService();
   const deps: ServerDeps = {
     broker:
       opts.deps?.broker ??
@@ -542,12 +544,17 @@ export async function createServer(opts: ServerOptions = {}): Promise<http.Serve
             getOrders: async () => [],
             placeOrder: async () => ({ id: "mock-order" }),
           }),
-    yahoo: opts.deps?.yahoo ?? new YahooFinanceService(),
-    db: opts.deps?.db ?? new DatabaseService(),
+    yahoo,
+    db,
     getFundamentals:
       opts.deps?.getFundamentals ??
       (realBroker
-        ? () => getNifty500Fundamentals(false, opts.deps?.db)
+        ? () =>
+            getNifty500Fundamentals({
+              store: db,
+              market: yahoo,
+              listSymbols: getNifty500Symbols,
+            })
         : async () => [
             {
               symbol: "RELIANCE",

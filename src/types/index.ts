@@ -19,7 +19,7 @@ export const QuoteSchema = z.object({
   open: z.number().nonnegative(),
   high: z.number().nonnegative(),
   low: z.number().nonnegative(),
-  previousClose: z.number().nonnegative(),
+  previousClose: z.number().nonnegative().optional(),
   volume: z.number().nonnegative(),
   timestamp: z.string().datetime(),
 });
@@ -69,3 +69,61 @@ export const CriteriaSchema = z.object({
 });
 
 export type Criteria = z.infer<typeof CriteriaSchema>;
+
+export const HoldingSchema = z.object({
+  symbol: z.string().min(1),
+  quantity: z.number(),
+  averagePrice: z.number(),
+  ltp: z.number(),
+  pnl: z.number(),
+  pnlPercent: z.number(),
+  dayChange: z.number(),
+  dayChangePercent: z.number(),
+  currentValue: z.number(),
+});
+
+export type Holding = z.infer<typeof HoldingSchema>;
+
+export const PositionSchema = z.object({
+  symbol: z.string().min(1),
+  quantity: z.number(),
+  averagePrice: z.number(),
+  ltp: z.number(),
+  pnl: z.number(),
+});
+
+export type Position = z.infer<typeof PositionSchema>;
+
+export const OrderSchema = z.object({
+  id: z.string().min(1),
+  symbol: z.string().min(1),
+  side: z.enum(["BUY", "SELL"]),
+  qty: z.number(),
+  price: z.number(),
+  status: z.string(),
+  timestamp: z.string(),
+});
+
+export type Order = z.infer<typeof OrderSchema>;
+
+export const PlaceOrderParamsSchema = z.object({
+  symbol: z.string().min(1),
+  qty: z.number().int().positive(),
+  side: z.enum(["BUY", "SELL"]),
+  type: z.enum(["LIMIT", "MARKET"]),
+  limitPrice: z.number().positive().optional(),
+});
+
+export const OrderRequestSchema = PlaceOrderParamsSchema.extend({
+  confirm: z.literal(true),
+}).superRefine((value, ctx) => {
+  if (value.type === "LIMIT" && value.limitPrice == null) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["limitPrice"],
+      message: "LIMIT orders require a positive limitPrice",
+    });
+  }
+});
+
+export type OrderRequest = z.infer<typeof OrderRequestSchema>;

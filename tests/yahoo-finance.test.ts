@@ -106,7 +106,82 @@ describe("YahooFinanceService", () => {
     const quote = await service.getQuote("RELIANCE");
     expect(quote.change).toBe(0);
     expect(quote.changePercent).toBe(0);
+    expect(quote.previousClose).toBeUndefined();
     expect(Number.isNaN(quote.change)).toBe(false);
     expect(Number.isNaN(quote.changePercent)).toBe(false);
+  });
+
+  it("throws when chart metadata has no price", async () => {
+    mockedAxios.get.mockResolvedValueOnce(
+      chartResponse({
+        regularMarketPrice: undefined,
+        chartPreviousClose: undefined,
+        regularMarketPreviousClose: undefined,
+      }),
+    );
+    await expect(service.getQuote("RELIANCE")).rejects.toThrow("No data found");
+  });
+
+  it("keeps a history bar when the timestamp is not a number if close is present", async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        chart: {
+          result: [
+            {
+              meta: { regularMarketPrice: 30 },
+              timestamp: [1700000000, "bad", 1700172800],
+              indicators: {
+                quote: [
+                  {
+                    open: [10, 20, 30],
+                    high: [10, 20, 30],
+                    low: [10, 20, 30],
+                    close: [10, 20, 30],
+                    volume: [1, 2, 3],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const prices = await service.getHistoricalPrices("RELIANCE");
+    expect(prices.map((p) => p.close)).toEqual([10, 20, 30]);
+  });
+
+  it("keeps a history bar when open, high, and low are null but close is present", async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        chart: {
+          result: [
+            {
+              meta: { regularMarketPrice: 102 },
+              timestamp: [1700000000],
+              indicators: {
+                quote: [
+                  {
+                    open: [null],
+                    high: [null],
+                    low: [null],
+                    close: [102],
+                    volume: [null],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const prices = await service.getHistoricalPrices("RELIANCE");
+    expect(prices).toHaveLength(1);
+    expect(prices[0].close).toBe(102);
+    expect(prices[0].open).toBe(102);
+    expect(prices[0].high).toBe(102);
+    expect(prices[0].low).toBe(102);
+    expect(prices[0].volume).toBe(0);
   });
 });

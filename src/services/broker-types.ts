@@ -1,40 +1,4 @@
-export interface Holding {
-  symbol: string;
-  quantity: number;
-  averagePrice: number;
-  ltp: number;
-  pnl: number;
-  pnlPercent: number;
-  dayChange: number;
-  dayChangePercent: number;
-  currentValue: number;
-}
-
-export interface Position {
-  symbol: string;
-  quantity: number;
-  averagePrice: number;
-  ltp: number;
-  pnl: number;
-}
-
-export interface Order {
-  id: string;
-  symbol: string;
-  side: "BUY" | "SELL";
-  qty: number;
-  price: number;
-  status: string;
-  timestamp: string;
-}
-
-export interface PlaceOrderParams {
-  symbol: string;
-  qty: number;
-  side: "BUY" | "SELL";
-  type: "LIMIT" | "MARKET";
-  limitPrice?: number;
-}
+import type { Holding, Order, OrderRequest, Position } from "../types/index.js";
 
 export interface Broker {
   readonly name: string;
@@ -44,5 +8,5 @@ export interface Broker {
   getHoldings(): Promise<Holding[]>;
   getPositions(): Promise<Position[]>;
   getOrders(): Promise<Order[]>;
-  placeOrder(params: PlaceOrderParams & { confirm: true }): Promise<{ id: string }>;
+  placeOrder(params: OrderRequest): Promise<{ id: string }>;
 }

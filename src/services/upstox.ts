@@ -1,5 +1,31 @@
 import axios from "axios";
-import type { Broker, Holding, Order, PlaceOrderParams, Position } from "./broker-types.js";
+import {
+  type Holding,
+  HoldingSchema,
+  type Order,
+  type OrderRequest,
+  OrderSchema,
+  type Position,
+  PositionSchema,
+} from "../types/index.js";
+import type { Broker } from "./broker-types.js";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function venueRows(payload: unknown): Record<string, unknown>[] {
+  if (!isRecord(payload) || !Array.isArray(payload.data)) return [];
+  return payload.data.map((row) => (isRecord(row) ? row : {}));
+}
+
+function venueString(row: Record<string, unknown>, key: string): string {
+  return String(row[key] ?? "");
+}
+
+function venueNumber(row: Record<string, unknown>, key: string): number {
+  return Number(row[key]);
+}
 
 export interface UpstoxConfig {
   apiKey: string;
@@ -51,51 +77,57 @@ export class UpstoxClient implements Broker {
     const res = await axios.get(`${this.base}/portfolio/long-term-holdings`, {
       headers: this.headers(),
     });
-    const rows = res.data.data ?? [];
-    return rows.map((h: Record<string, number | string>) => ({
-      symbol: String(h.tradingsymbol),
-      quantity: Number(h.quantity),
-      averagePrice: Number(h.average_price),
-      ltp: Number(h.close_price ?? h.ltp),
-      pnl: Number(h.pnl ?? 0),
-      pnlPercent: Number(h.pnl_percent ?? 0),
-      dayChange: Number(h.day_change ?? 0),
-      dayChangePercent: Number(h.day_change_percent ?? 0),
-      currentValue: Number(h.current_value ?? Number(h.close_price) * Number(h.quantity)),
-    }));
+    const rows = venueRows(res.data);
+    return rows.map((h) =>
+      HoldingSchema.parse({
+        symbol: venueString(h, "tradingsymbol"),
+        quantity: venueNumber(h, "quantity"),
+        averagePrice: venueNumber(h, "average_price"),
+        ltp: Number(h.close_price ?? h.ltp),
+        pnl: Number(h.pnl ?? 0),
+        pnlPercent: Number(h.pnl_percent ?? 0),
+        dayChange: Number(h.day_change ?? 0),
+        dayChangePercent: Number(h.day_change_percent ?? 0),
+        currentValue: Number(h.current_value ?? Number(h.close_price) * Number(h.quantity)),
+      }),
+    );
   }
 
   async getPositions(): Promise<Position[]> {
     const res = await axios.get(`${this.base}/portfolio/short-term-positions`, {
       headers: this.headers(),
     });
-    const rows = res.data.data ?? [];
-    return rows.map((p: Record<string, number | string>) => ({
-      symbol: String(p.tradingsymbol),
-      quantity: Number(p.quantity),
-      averagePrice: Number(p.average_price),
-      ltp: Number(p.close_price ?? p.ltp),
-      pnl: Number(p.pnl ?? 0),
-    }));
+    const rows = venueRows(res.data);
+    return rows.map((p) =>
+      PositionSchema.parse({
+        symbol: venueString(p, "tradingsymbol"),
+        quantity: venueNumber(p, "quantity"),
+        averagePrice: venueNumber(p, "average_price"),
+        ltp: Number(p.close_price ?? p.ltp),
+        pnl: Number(p.pnl ?? 0),
+      }),
+    );
   }
 
   async getOrders(): Promise<Order[]> {
     const res = await axios.get(`${this.base}/orders`, {
       headers: this.headers(),
     });
-    const rows = res.data.data ?? [];
-    return rows.map((o: Record<string, number | string>) => ({
-      id: String(o.order_id),
-      symbol: String(o.tradingsymbol),
-      side: String(o.transaction_type) === "SELL" ? "SELL" : "BUY",
-      qty: Number(o.quantity),
-      price: Number(o.price),
-      status: String(o.status),
-      timestamp: String(o.order_timestamp),
-    }));
+    const rows = venueRows(res.data);
+    return rows.map((o) =>
+      OrderSchema.parse({
+        id: venueString(o, "order_id"),
+        symbol: venueString(o, "tradingsymbol"),
+        side: venueString(o, "transaction_type") === "SELL" ? "SELL" : "BUY",
+        qty: venueNumber(o, "quantity"),
+        price: venueNumber(o, "price"),
+        status: venueString(o, "status"),
+        timestamp: venueString(o, "order_timestamp"),
+      }),
+    );
   }
 
-  async placeOrder(params: PlaceOrderParams & { confirm: true }): Promise<{ id: string }> {
+  async placeOrder(params: OrderRequest): Promise<{ id: string }> {
     if (!params.confirm) {
       throw new Error("Order not confirmed. Pass confirm:true to place a real order.");
     }
